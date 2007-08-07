@@ -3,7 +3,7 @@
 #qx{ rm t/cache/*.cache };
 
 use ExtUtils::MakeMaker;
-use ExtUtils::Manifest { mkmanifest };
+use ExtUtils::Manifest qw{ mkmanifest };
 
 mkmanifest();
 

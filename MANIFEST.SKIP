@@ -1,5 +1,5 @@
 t/cache/*    # ignore cache files
 lib/test*    # ignore any test cases
-.git/        # ignore git repo
+^.git        # ignore git repo
 ~$           # ignore vi backup files
 .bak$        # ignore misc backup files
