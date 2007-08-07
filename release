@@ -1,20 +1,5 @@
 #!/perl/bin
 
-#qx{ rm t/cache/*.cache };
-
-use ExtUtils::MakeMaker;
 use ExtUtils::Manifest qw{ mkmanifest };
-
 mkmanifest();
-
-WriteMakefile(
-  NAME            => 'Compost::Template',
-  ABSTRACT_FROM   => 'lib/Compost/Template.pod',
-  VERSION_FROM    => 'lib/Compost/Template.pm',
-  AUTHOR          => 'Billy Naylor <banjo@actrix.co.nz>',
-  MAN3PODS        => { 'lib/Compost/Template.pod' },
-);
-
-
-
 
