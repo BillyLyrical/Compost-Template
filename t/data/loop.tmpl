@@ -1,0 +1,8 @@
+<% if $test = 1 -%>
+ <% loop $digits %> 
+ <%+ $num -%>
+ <% /loop -%>
+<% elsif $test = 2 -%>
+ <% loop $digits +%> <% counter -%> <% /loop -%>
+<% /if +%>
+OK<%- nop -%>

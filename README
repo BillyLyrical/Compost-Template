@@ -1,0 +1,69 @@
+Compost-Template version 0.06
+=============================
+
+Compost::Template is a perl templating module, originally based on
+HTML::Template, and like HTML::Template attempts to make using
+templates simple and natural.
+
+Compost::Template has a more elegant syntax that solves the problems
+i had with HTML::Template.  It also compiles the Template into a
+simple bytecode format, that is fast to interpret.
+
+Compost::Template is useful for web templating, but also for other
+templating jobs, it's features include...
+
+ * cleaner syntax
+ * better whitespce control
+ * printf, to manage padding  
+ * more flexible than HTML::Template
+ * a state namespace, that is globable
+ * able to manage callbacks
+ * template errors contain line numbers
+
+For more information, perldoc Compost::Template
+
+Compost::Template was part of my Compost cms, which is still being
+developed and pondered.  Compost cms is a simple lightweight cms,
+a mix of old-skool perl cgi with modern web framework ideas.
+It is not a web programming framework, end users are not expected
+to be able to program.
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+DEPENDENCIES
+
+This module requires these other modules and libraries:
+
+File::Spec
+Test::More - but only for testing the build
+
+PROBLEMS/BUG REPORTS
+
+Please send any reports of problems or bugs to banjo@actrix.co.nz.
+
+If you know Test::More, and can be bothered making a Test case,
+email it to me, that'll help me find and fix the bug.
+
+If you'd like more features, or have suggestions or whatever,
+please email me.
+
+COPYRIGHT AND LICENCE
+
+This code is licensed under the same terms and conditions as Perl itself.
+
+This means that you can, at your option, redistribute is and/or modify it under
+either the terms the GNU Public License (GPL) version 1 or later, or under the
+Perl Artistic License.
+
+See http://dev.perl.org/licenses/
+
+Copyright (C) 2007 by banjo@actrix.co.nz
+
+

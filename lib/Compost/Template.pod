@@ -1,0 +1,955 @@
+package Compost::Template;
+
+=head1 NAME
+
+Compost::Template - Simple Templating
+
+=head1 SYNTAX SUMMARY
+
+ <%- TAG  %>   - swallow all preceding whitespace
+ <%  TAG +%>   - swallow following whitespace, leave a space
+ <%- TAG -%>   - swallow all preceding and following whitespace
+
+ <% ignore %> ... <% /ignore %> - ignore what's between tags
+ <% # some useful comments %>   - comment out tag
+ <% nop %>                      - no op
+ <% 'some stuff' %>             - quote exactly
+ <% "some $stuff goes $here" %> - interpolate into string
+ <% include foo.tmpl %>         - include another template
+ <% include bar.tmpl -shrug %>  - include, ignore failure
+
+ <% $var %>                     - insert variable
+ <% $var -global %>             - insert global variable
+ <% $var -html %>               - escape as html
+ <% $var -url %>                - escape as url
+ <% $var.1.name %>              - intermix hashes and arrays
+
+ <% map $t %> ... <% /map %>    - map to a hash
+ <% printf "%08d" $var %>       - printf
+
+ Conditionals
+ <% if $x %> ... <% /if %>
+ <% if $x = 3 %> ... <% elsif $x = 4 %> ... <% else %> ...  <% /if %>
+ <% unless $x = 3 %> ... <% else %> ... <% /unless %>
+ <% switch $x %> <% when 4 %> ... <% when 5 %> ... <% /switch %>
+
+ <% loop $x %> ... <% /loop %>
+ <% counter %>
+ __count__  - the index number of this loop ( like <% counter %> )
+ __inner__  - is not true on the first or last pass
+ __outer__  - is true on the first or last pass
+ __even__   - is true on even numbered passes
+ __odd__    - is true on odd numbered passes
+ __first__  - is true on first pass
+ __last__   - is true on last pass
+
+ <% format NAME ARGS? %> ... <% /format %>
+ <% state State *.happy %> ... <% /state %>
+ <% call myFunc $var1 $var2 %>
+
+=over 4
+
+=back
+
+=head1 DESCRIPTION
+
+Compost::Template is a perl templating module, based on
+HTML::Template, and like HTML::Template attempts to make using
+templates simple and natural.
+
+A file written with these new tags is called a template, and traditionally
+has a .tmpl suffix.
+
+It is usually saved separate from your script - possibly even created by
+someone else!  Using this module you fill in the values for the
+variables, loops and branches declared in the template.  This allows
+you to separate design - the HTML - from the data, which you generate
+in the Perl script.
+
+=head1 QUICK START
+
+First you make a template - this is just a normal file with template
+tags, the simplest being <% $var %>
+
+For example, test.tmpl:
+
+  My name is <% $name %>,
+  i am <% $age %> years old.
+  
+Now create a small perl script:
+
+  use Compost::Template;
+  my $template = Compost::Template->new( filename => 'test.tmpl' );
+  $template->param(
+      name => 'Steve',
+      age  => 34,
+  );
+  print $template->run;
+
+This should print:
+
+  My name is Steve,
+  i am 34 years old.
+
+=head1 THE TAGS
+
+=over 4
+
+Note: even though these tags look like HTML they’re allowed to "break the rules".
+Some thing like:
+
+   <img src="<% $image_source %>">
+
+is not really valid HTML, but it is a perfectly valid use and will work as planned.
+
+=item General Syntax
+
+There are two types of tags, singular...
+
+ <% TAG ARGS? -OPTIONS? %>
+
+...and block, with end tags...
+
+ <% TAG %> ... <% /TAG %>
+
+Block tags have a start and end, the '/' is used to indicate the end, like in html.
+
+=item Swallowing Whitespace
+
+A '-' next to the '%' means swallow all whitespace.
+
+A '+' next to the '%' means swallow whitespace, but leave one space.
+
+These hints can be put at the start and/or the end of a tag...
+
+ <%- TAG  %>   - swallow all preceding whitespace
+ <%  TAG +%>   - swallow following whitespace, leave a space
+ <%- TAG -%>   - swallow all preceding and following whitespace
+
+=item nop
+
+  <% nop %>
+
+The nop tag (which doesn't have an end tag), doesn't do anything,
+it is useful in whitespace control.
+
+The 'nop' tag doesn't use end blocks.
+
+=item ignore
+
+ <% ignore %> ... <% /ignore %>
+
+All the stuff between the start and end ignore tags will be ignored.
+This allows you to comment out chunks of template.
+
+=item comment
+
+Comment tags use a hash('#'), to comment out a single tag...
+
+ <% # some useful comments %>
+
+The contents of a 'comment' tag are ignored.
+The comment tag doesn't use end blocks.
+
+The comment tag can be used to comment out another tag...
+
+ <% # include some_unwritten_file.tmpl %>
+
+...although if you comment out a tag that uses end blocks,
+you'll also need to comment that out as well...
+
+ <% # if $birthday %> ... <% # /if %>
+
+=item Interpolation
+
+ <% 'some stuff' %>
+
+Everything inside the single quotes will be inserted as is.
+
+ <% "some $stuff goes $here" %>
+
+To aid layout, when double quotes are used ("), it will interpolate the
+variables. Actually the above tag gets replaced with...
+
+ some <% $stuff %> goes <% $here %>
+
+These tags don't use end blocks.
+
+=item include
+
+  <% include filename.tmpl %>
+
+This tag includes a template directly into the current template at the
+point where the tag is found.  The included template contents are used
+exactly as if its contents were physically included in the master
+template.
+
+The file specified can be a full path - beginning with a '/'.  If it
+isn't a full path, the path to the enclosing file is tried first.
+After that the path in the environment variable COMPOST_TEMPLATE_ROOT is
+tried next, if it exists.  Next, the "path" new() option is consulted.
+As a final attempt, the filename is passed to open() directly.  See
+below for more information on COMPOST_TEMPLATE_ROOT and the "path" option
+to new().
+
+As a protection against infinitly recursive includes, an arbitary
+limit of 10 levels deep is imposed.  You can alter this limit with the
+"max_includes" option.  See the entry for the "max_includes" option
+below for more details.
+
+Include tags can use a '-shrug' option, to keep going if
+an included file is not found, or can't be loaded...
+
+ <% include obnoxious_advert.tmpl -shrug %>
+
+=item Variables
+
+ <% $var %>
+ <% $var -global %>  - is a global variable, starts in root namespace
+ <% $var -html %>    - escape as html
+ <% $var -url %>     - escape as url
+
+The <% $var %> tag is very simple.  For each <% $var %> tag in the
+template you call $template->param( var => "VALUE").  When
+the template is run the <% $var %> is replaced with the VALUE text
+you specified.  If you don't set a parameter it just gets skipped in
+the output.
+
+Optionally you can use the '-html' option in the tag to indicate
+that you want the value to be HTML-escaped before being returned from
+run.  This means that the ", <, >, and & characters get translated
+into &quot;, &lt;, &gt; and &amp; respectively.  This is useful when
+You want to use a '$var' in a context where those characters would
+cause trouble.
+
+   <input name=param type=text value="<% $var -html %>">
+
+There is also the '-url' option which may be used for a '$var' that
+populates a URL.  It will do URL escaping, like replacing ' ' with '+'
+and '/' with '%2F'.
+
+   <a href="http://foo.com/cgi/jump?<% $var -url %>">
+
+You can control whitespace (including newlines)  by starting (means
+swallow preceding whitespace) and/or ending (means swallow trailing
+whitespace) the tag with '-' (means swallow all whitespace) or '-'
+(means leace a space ' ').
+
+Variables can be accessed deeply...
+
+ <% $var.1.name %>
+
+accesses the hash 'var', and the array element #1, ( or hash key '1' if no
+array is found), and then the hash element 'name'.
+
+Variables don't use end tags.
+
+=item Conditionals
+
+ <% if $x %> ... <% /if %>
+ <% if $x = 3 %> ... <% elsif $x = 4 %> ... <% else %> ...  <% /if %>
+ <% unless $x = 3 %> ... <% else %> ... <% /unless %>
+ <% switch $x %> <% when 4 %> ... <% when 5 %> ... <% /switch %> 
+
+'if' and 'unless' can have 'else' blocks.
+'if' can also have many 'elsif' blocks.
+
+Conditional testing can use equals ( '==' or '=' ), not equals ( '!=' ),
+greater than ( '>' ), greater than or equals ( '>=' ),
+less than ( '<' ), less than or equals ( '<=' ).
+
+'when', 'elseif' and 'else' don't use end tags.
+
+=item if
+
+  <% if $Parameter_Name %> ... <% /if %>
+
+The <% if %> tag allows you to include or not include a block of the
+template based on the value of a given parameter name.  If the
+parameter is given a value that is true for Perl - like '1' - then the
+block is included in the output.  If it is not defined, or given a
+false value - like '0' - then it is skipped.
+
+Example Template:
+
+   <% if $boolean %>
+     Some text that only gets displayed if $boolean is true!
+   <% /if %>
+
+Now if you call $template->param(boolean => 1) then the above block will
+be included by output.
+
+<% if %> <% /if %> blocks can include any valid Compost::Template
+construct - '$var's and 'loop's and other if/else blocks.  Note, however,
+that intersecting a <% if %> and a <% loop %> is invalid.
+
+   Not going to work:
+   <% if $boolean %>
+      <% loop $myLoop %>
+   <% /if %>
+      <% /loop %>
+
+If the name of a 'loop' is used in a 'if', the 'if' block will
+output if the loop has at least one row.  Example:
+
+  <% if $loop_one %>
+    This will output if the loop is not empty.
+  <% /if %>
+
+WARNING: Much of the benefit of Compost::Template is in decoupling your
+Perl and HTML.  If you introduce numerous cases where you have
+'if's and matching Perl if()s, you will create a maintenance
+problem in keeping the two synchronized.  I suggest you adopt the
+practice of only using <% if %> if you can do so without requiring a
+matching if() in your Perl code.
+
+=item unless
+
+  <% unless $boolean %> ... <% /unless %>
+
+This tag is the opposite of <$ if %>.  The block is output if the
+$boolean is set false or not defined.  You can use
+<% else %> with <% unless %>, but not <% elsif %>.
+
+  Example:
+
+  <% unless $BOOL %>
+    Some text that is output only if BOOL is FALSE.
+  <% else %>
+    Some text that is output only if BOOL is TRUE.
+  <% /unless %>
+
+If the name of an array is used in a <% unless %>, the UNLESS block
+output if the loop has zero rows.
+
+  <% unless $LOOP %>
+    This will output if the loop is empty.
+  <% /unless %>
+  
+  <% loop  %LOOP %>
+    ....
+  <% /loop %>
+
+<% if %> and <$ unless %> can also check against a value...
+
+  <% if $foo = 42 %>
+    ...
+  <% /if %>
+
+=item else
+
+  <% else %>
+
+You can include an alternate block in your <% if %> block by using
+<% else %>.  NOTE: You still end the block with <% /if %>, not
+<% /else %>!
+ 
+   Example:
+
+   <% if $BOOL %>
+     Some text that is included only if BOOL is true
+   <% else %>
+     Some text that is included only if BOOL is false
+   <% /if %>
+
+=item Loops
+
+ <% loop $x %> ... <% /loop %> - where $x is an array ref
+ <% counter %>                 - returns the index number of this loop
+
+The <% loop $var %> tag allows you to insert the contents of an array
+in multiple passes. Inside <% loop $var %> ... <% /loop %> you can put
+other Template Tags.
+
+Now you pass to param() a list (an array ref) of parameter assignments 
+(hash refs).  The loop iterates over this list and produces output from
+the text block for each pass.  Unset parameters are skipped.  ie..
+
+The script:
+
+  $template->param(
+    friends => [ 
+      { name => 'Sam', age => 32 },
+      { name => 'Sue', age => 21 },  # always the gentleman
+    ]
+  );
+  print $template->run();
+
+The template:
+
+  <% loop $friends %>
+    Name: <% $name %> <br>
+    Age: <% $age %> <p>
+  <% /loop %>
+
+The output:
+
+    Name: Sam <br>
+    Age: 32 <p>
+
+    Name: Sue <br>
+    Age: 21 <p>
+
+As you can see the <% loop $friends %> tag takes a list of variable
+assignments and then iterates over the loop body producing output.
+
+Often you'll want to generate a loops' contents programmatically.
+Here's an example of how this can be done (there are other ways):
+
+  # a couple of arrays of data to put in a loop:
+  my @friends = qw{ Steve Sam Sue };
+  my @ages    = qw{ 34    32  21  };
+
+  # initialize an array to hold your loop
+  my @loop_data = ();
+
+  while ( @friends and @ages ) {
+    # get a fresh hash for the row data
+    my %row_data;
+
+    # fill in this row
+    $row_data{name} = shift @friends;
+    $row_data{age}  = shift @ages;
+ 
+    # push a reference to this row into the loop!
+    push( @loop_data, \%row_data );
+  }
+
+  # assign the loop data to the loop param, with a reference:
+  $template->param( friends => \@loop_data );
+
+Ths example in a template like:
+
+  <% loop $friends %>
+    Name: <% $name %><br>
+    Age: <% $age %><p> 
+  <% /loop %>
+
+Will produce output like:
+
+  Name: Steve
+  Age: 34
+
+  Name: Sam
+  Age: 32
+
+  Name: Sue
+  Age: 21
+
+
+<% loop %>s within <% loops %>s are fine and work as you would expect.
+If the syntax for the param() call has you stumped, here's an example
+of a param call with one nested loop:
+
+  $template->param(
+    'friends', [
+       { name => 'Steve',
+          presents => [
+            { name => 'socks' }, 
+            { name => 'scarlet tie' },
+         ],
+       },
+    ],
+  );
+
+Basically, each <% loop $var %> gets an array reference.
+Inside the array are any number of hash references.
+These hashes contain the name=>value pairs for a single pass over the loop template.  
+
+
+Inside a <% loop %>, the only variables that are usable are the ones
+from the <% loop %>.  The variables in the outer blocks are not
+visible within a template loop.  For the computer-science geeks among
+you, a <% loop %> introduces a new scope much like a perl subroutine
+call. 
+
+If you want a variable to be global you can use the '-global' option
+in the tag ( <% $var -global %> ).
+
+Loops create special variables (suggestions for better names wanted)...
+
+ __count__  - the index number of this loop ( like <% counter %> )
+ __inner__  - is not true on the first or last pass
+ __outer__  - is true on the first or last pass
+ __even__   - is true on even numbered passes
+ __odd__    - is true on odd numbered passes
+ __first__  - is true on first pass
+ __last__   - is true on last pass
+
+These are accesed like...
+
+  <% if $__inner__ %> ... <% $__count__ %> ... <% /if %>
+
+For example...
+
+   <% loop $foo %>
+      <% if $__first__ %>
+        This only outputs on the first pass.
+      <% /if %>
+
+      <% if $__odd__ %>
+        This outputs every other pass, on the odd passes.
+      <% /if %>
+
+      <% unless $__odd__ %>
+        This outputs every other pass, on the even passes.
+      <% /unless %>
+
+      <% if $__even__ %>
+        This outputs every other pass, on the even passes.
+      <% /if %>
+
+      <% if $__inner__ %>
+        This outputs on passes that are neither first nor last.
+      <% /if %>
+
+      <% if $__last__ %>
+        This only outputs on the last pass.
+      <% /if %>
+   <% /loop %>
+
+NOTE: A loop with only a single pass will get both __first__ and
+__last__ set to true, but not __inner__.
+
+One use of this feature is to provide a "separator" similar in effect
+to the perl function join().  Example:
+
+   <% loop $friends -%>
+      <% if $__last__ %> and <% /if -%>
+      <% $kind %><% unless $__last__ %>, <% else %>.<% /unless %>
+   <%- /loop %>
+
+Would output something like...
+
+  Steve, Sue, Simon, Sally and Sebastion.
+
+=item switch
+
+ <% switch $t %>     - $t must be a $variable that can be tested
+  <% when 1 %> ...
+  <% when < 20 %> ...
+  <% else %>   ...
+ <% /switch %>
+
+Syntactic sugar for complex if/elsif/else structures.
+It can do simple equality checks <% when 'foo' %>, or more
+complex tests <% when >= 32 %>.  <% else %> is not required.
+
+=item map
+
+ <% map $t %>   - must be a hash ref
+   <% $var %>   - 'var' is a key in the hash
+ <% /map %>
+
+'map' is sort of the hash version of 'loop', it can be useful in
+situations like...
+
+ <% map $foo.3 %> ... <% /map %>
+
+...where $foo is an array ref, and you just want the 4th (counting 
+from zero remember) element, which would be a hash ref.
+
+=item printf
+
+ <% printf "%08d" $var %>
+
+The venerable printf keeps going on, consult your local implementation
+for it's syntax (perldoc -f sprintf). You need to quote the format,
+currently single quotes (') and double quotes (') are treated the same,
+but still need to be balanced.  The arguments are whitespace delimited.
+
+'printf' does not use an end tag.
+
+=item format
+
+ <% format NAME ARGS? %> ... <% /format %>
+
+Format allows all sorts of transformations on the test between the tags.
+Currently implemented format types are
+
+ uppercase   - uppercase it all
+ upper       - alias for uppercase
+ capitalize  - capitalize first letter of each word
+ lowercase   - lowercase it all
+ lower       - alias for lowercase
+ truncate    - chops it short, takes an argument in chars
+ trim        - removes leading & trailing text, and condenses internal whitespace
+ wordwrap    - simple wordwrap, takes and argument for line length (in chars)
+ text2html   - primitive text to html conversion, to be improved, oneday
+ html        - alias for text2html
+ wiki        - uses Compost::Wiki to markup to html - not currently used
+
+You can add your own formats...
+
+  Compost::Template::Format->add( $name, $callback );
+
+=item state
+
+ <% state State *.happy %> ... <% /state %>
+
+'state' uses a seperate namespace, setup with the set_state()
+method, and interrogated with the get_state() method.
+
+set_state takes a name and a value, the name is assumed to be some
+top level control name, and the value is a simple dot '.' delimited
+state.  The 'state' can be tested with a simple globish syntax...
+
+  ! - at the start means not, ie, invert the result
+  ? - means one word
+  * - means one or more words
+  . - is the delimiter between words
+
+so, given set_state( 'Action', 'cgi.set.age' ), these will match
+
+  <% state Action cgi.* %>
+  <% state Action *.age %>
+  <% state Action cgi.set.age %>
+  <% state Action cgi.?.age %>
+  <% state Action !cgi.set.birthday %>
+
+You can have as many 'state' key names as you like.
+
+<% state %> is an aid for managing complex template files.
+
+'state's are labels containing symbols delimited by dots '.',
+you set them with set_state( $name, $label ), and can test whether
+a 'state' has been set...
+
+  <% state Base * %>The state 'Base' is set<% /state %>
+
+You can match against the whole 'state'...
+
+  <% state Base cgi.test %>This is a cgi test<% /state %>
+
+.. or a subset of it...
+
+  <% state Base cgi.*>This is cgi<% /state %>
+
+The 'state' match uses either a question_mark '?' to match
+against one word, or a star '*' to match against one or more.
+
+=item call
+
+ <% call myFunc $var1 $var2 %>
+
+'call' lets you call a function, you first have to register it with
+the set_call( $name, $callback ) method, and you can remove it again
+with the delete_call( $name ) method.
+
+'call' doesn't use end tags, and can be considered the non-block
+version of 'format'.
+
+Currently no 'call' functions come with Compost, but im thinking about
+it, (maybe i'll add Date, Time, Hostname, User - suggestions please).
+
+=back
+
+=head1 Methods
+
+=head2 new()
+
+Call new() to create a new Template object:
+
+  my $template = Compost::Template->new(
+    filename => 'file.tmpl', 
+    path     => '/path/to/templates', 
+  );
+
+You must call new() with at least one name => value pair specifying how
+to access the template text.  You must use "filename => 'file.tmpl'" to
+specify a filename to be opened as the template.
+
+If the environment variable COMPOST_TEMPLATE_ROOT is set and your
+filename doesn't begin with /, then the path will be relative to the
+value of $COMPOST_TEMPLATE_ROOT.  Example - if the environment variable
+COMPOST_TEMPLATE_ROOT is set to "/home/sam" and I call
+Compost::Template->new() with filename set to "sam.tmpl", the
+Compost::Template will try to open "/home/sam/sam.tmpl" to access the
+template file.  You can also affect the search path for files with the
+"path" option to new() - see below for more information.
+
+These new() options are available...
+
+=over 4
+
+=item die_on_bad_params
+
+By default an error will be thrown if an undefined variable is called in a template
+
+Setting die_on_bad_params => 0, will allow the template to ignore that
+error and keep going.
+
+=item no_includes
+
+By default includes are allowed, set no_includes => 1, to ban includes.
+
+=item remake
+
+setting remake => 1, forces the cache files to be rebuilt.
+
+=item allow_absolute_path
+
+By default absolute paths (like /etc/shadow) are unable to be 'include'd
+in a template.
+
+Setting allow_absolute_path => 1, allows them to be 'include'd.
+
+=item allow_relative_path
+
+By default only relative paths can be included in a template.
+
+Setting allow_relative_path => 0, turns off this behaviour.
+
+=item cache
+
+If set to a writable filename the module will cache the parsed
+templates based on the filename parameter and modification date of the
+file.  Caching looks at the modification times of any files included using
+<% include %> tags, to see if it needs to reparse the templates.
+
+=item cache_dir
+
+If set will use/write template cache files in that dir, if 'cache'
+is not defined will create cache files with a '.cache' extension.
+
+=item path
+
+You set this variable with a list of paths to search for
+files specified with the "filename" option to new() and for files
+included with the <% include %> tag.  This list is only consulted
+when the filename is relative.
+
+The COMPOST_TEMPLATE_ROOT environment variable is always tried first
+if it exists.  In the case of a <% include %> file, the path to the
+including file is also tried before path is consulted.
+
+If no path is set, and COMPOST_TEMPLATE_ROOT is not defined, then
+the current directory will be used.
+
+Example:
+
+   my $template = Compost::Template->new(
+      filename => 'file.tmpl',
+      path     => [ '/path/to/templates',
+                    '/alternate/path'
+                  ]
+   );
+
+NOTE: the paths in the path list must be expressed as UNIX paths,
+separated by the forward-slash character ('/').
+
+=item max_depth
+
+Set this variable to determine the maximum depth that
+includes can reach.  Set to 10 by default.  Including files to a depth
+greater than this value causes an error message to be displayed.  Set
+to 0 to disable this protection.
+
+=item template
+
+  'template' => $template,
+
+Set this variable to contain the template so it can be
+loaded in dynamically. This conflicts with 'filename',
+but not 'path' or 'cache'.
+
+=item state
+
+You can define the state in the new() method.
+
+   my $template = Compost::Template->new(
+      filename => 'file.tmpl',
+      path     => '/path/to/templates',
+	  state     => 'Compost.Secure.Order.View',
+   );
+
+=back
+
+=head2 param
+
+param() can be called in a number of ways
+
+To set the value of a parameter :
+
+      # For simple vars:
+      $self->param( key => 'value' );
+
+      # with a subroutine reference that gets called to get the value of
+      # the scalar.
+      $self->param( key => sub { return 'value' } );   
+
+      # And loops:
+      $self->param(
+         name => [ 
+                    { key => 'value1', }, 
+                    { key => 'value2', } ,
+         ],
+      );
+
+To set the value of a a number of parameters :
+
+     # For simple vars:
+     $self->param(key1 => 'value1', key2 => 'value2');
+
+      # And with some loop:
+      $self->param(
+            key1 => 'value1', 
+            key2 => 'value2',
+            myArray1 => [ 
+                    { key => 123, }, 
+                    { key => 456, }, 
+            ],
+            myArray2 => [ 
+                    { key => 'abc', }, 
+                    { key => 'def', }, 
+            ],
+      );
+
+To set the value of a a number of parameters using a single hash-ref :
+
+      # either...
+      $self->param( \%cgi );
+
+      # .. or
+      $self->param(
+            { 
+                 var1 => 'value1', 
+                 var2 => 'value2',
+                 loop1 => [ 
+                        { key => 123, }, 
+                        { key => 456, },
+                 ],
+                 loop2 => [ 
+                        { key => 'abc', }, 
+                        { key => 'def', }, 
+                 ],
+            }
+      );
+
+=head2 run()
+
+run() returns the final result of the template.  In most situations you'll want to print this, like:
+
+   print $template->run();
+
+When run is called each occurrence of <% $var %> is
+replaced with the value assigned to "name" via param().
+
+If a named parameter is unset it throws an error, or is replaced with '',
+if die_on_bad_params => 0.
+
+<% loop $var %> are evaluated once per parameter set, accumlating output on each pass.
+
+Calling run() is guaranteed not to change the state of the
+Template object, in case you were wondering.  This property is mostly
+important for the internal implementation of loops.
+
+=head2 reply
+
+reply() wraps the param and run methods, prints a simple html header,
+prints the template output, and exits.
+So instead of..
+
+  $template->param(
+    name => 'John',
+    age  => '30',
+  );
+  print "Content-Type: text/html\n\n";
+  print $template->run;
+  exit 1;
+
+... you can just call reply()...
+
+  $template->reply(
+    name => 'John',
+    age  => '30',
+  );
+
+=over 4
+
+=item set_state
+
+  $template->set_state( 'Low.App.Hello' );
+
+Define what STATE context to run in.
+
+=item get_state
+
+  if ( $template->get_state eq 'Compost.Secure' ) { .. }
+
+Returns the defined STATE. 
+
+=item match
+
+  $template->match( '!App.*' ) and { ... };
+    .. or ..
+  $template->match( '!App.*', $state ) and { ... };
+    .. or ..
+  Compost::Template->match( '!App.*', $state ) and { ... };
+
+Allows you to test if the State you've chosen matches a state glob.
+You must pass in the match glob, if you don't pass the state to match
+then it will match against the objects' defined STATE.
+
+=head1 Factory
+
+There is a sub package called Compost::Template::Factory.
+This has syntactic sugar to cut down the amount of code.
+
+example...
+
+  use Compost::Template;
+
+  my $factory = Compost::Template::Factory->create(
+    path      => '/path/to/templates',
+    cache_dir => '/path/to/caches',
+  );
+  my $t1 = $factory->new( $filename1 );
+  my $t2 = $factory->new( $filename2 );
+  
+All the options are cached when you create the factory, and
+then passed to Compost::Template by every Compost::Template::Factory->new().
+
+Compost::Template::Factory also handles cache files intelligently.
+
+=head2 Chaining methods
+
+Because new(), set_state(), and param() methods return $self, they can be chained
+together...
+
+  print $factory->new( 'test.tmpl' )
+   ->setstate( 'Template.simple.test' )
+   ->param( name => 'banjo' )
+   ->run();
+
+=back
+
+=head1 BUGS
+
+A linebreak seems to be being added to the end of the output, it's
+in the compiled cache, so it's being added by Compost::Template::Parser.
+If it matters, the easy fix is to swallow whitespace on your last tag.
+If you don't end with a tag, then append <%- nop -%> to your template.
+
+=head1 TODO
+
+Try using Storable instead of building bytecode
+or maybe write a Runtime as a C lib, for extra speed.
+
+Document the code better
+
+Abstract out parsing more, i wanna add more -options.
+
+=head1 COPYRIGHT
+
+Copyright (c) 2007 banjo@actrix.co.nz.  All rights reserved.
+
+This library is free software; you can redistribute it and/or modify it under the same
+terms as Perl itself.
+
+=head1 SEE ALSO
+
+  perl(1), HTML::Template, Template, 
+
+=cut
+

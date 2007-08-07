@@ -1,0 +1,9 @@
+<% if $test = 1 -%>
+<% map $foo.bar %><% $map %> <% $works %> <% $ok %><% /map -%>
+<% elsif $test = 2 -%>
+<% $foo.3 %> <% $foo.1 %> <% $foo.0 -%>
+<% elsif $test = 3 -%>
+<% map $foo.0 %><% $word %> <% /map -%>
+<% map $foo.1 %><% $word %> <% /map -%>
+<% map $foo.2 %><% $word %> <%- /map -%>
+<% /if +%> OK <%- nop -%>

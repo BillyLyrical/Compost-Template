@@ -1,0 +1,14 @@
+=== Test /case/
+
+This is not preformatted
+This is a WikiWord ok
+
+  This is preformatted
+
+This /is *not*/
+ This is
+ and so is this
+but not this
+what about [[foo.com/yaya]] or even [[foo.com/way|way]], hey
+
+

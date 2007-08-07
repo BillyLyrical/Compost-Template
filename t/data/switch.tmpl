@@ -1,0 +1,10 @@
+<% loop $digits -%>
+ <% switch $num %>
+  <%- when 5 %> 1
+  <%- when 4 %> 2
+  <%- when 3 %> 3
+  <%- when 2 %> 4
+  <%- else %> 5
+ <%- /switch -%>
+<% /loop -%>
+

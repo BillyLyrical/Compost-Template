@@ -1,0 +1,23 @@
+<% # test if statements -%>
+<% if $x = 2 %>IF <% /if -%>
+<% if $x = 2 %>works <% /if -%>
+<% if $x = 2 %>ok<% /if -%>
+
+<% # test elsif statements -%>
+<% if $x = 3 -%> ELSIF
+  <%+ if $x = 2 %> NOT1 <% elsif $x = 3 %>works <% /if -%>
+  <% if $x = 12 %> NOT2 <% elsif $x = 13 %> NOT3 <% elsif $x = 3 -%> ok<% else %>NOT4<% /if -%>
+<% /if -%>
+
+<% # test else statements -%>
+<% if $x = 4 -%> ELSE
+  <%+ if $x = 20 %> NOT5 <% else %>works<% /if -%>
+  <% if $x = 2 %> NOT6 <% elsif $x = 20 %>elsif <% else +%>ok<% /if -%>
+<% /if -%>
+
+<% # test unless statements -%>
+<% if $x = 5 -%> UNLESS
+ <%- unless $x = 20 %> works<% /unless -%>
+ <% unless $x = 5 %> NOT7 <% else +%>ok<% /unless -%>
+<% /if +%>
+Good <%- nop -%>
