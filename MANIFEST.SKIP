@@ -3,3 +3,4 @@ lib/test*    # ignore any test cases
 ^.git        # ignore git repo
 ~$           # ignore vi backup files
 .bak$        # ignore misc backup files
+release      # this is the tool to make the distro
