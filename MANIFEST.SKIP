@@ -1,7 +1,7 @@
-MANIFEST.SKIP # ourself
-release       # this is the tool to make the distro
-t/cache/*     # ignore cache files
-lib/test*     # ignore any test cases
-^.git         # ignore git repo
-~$            # ignore vi backup files
-.bak$         # ignore misc backup files
+^MANIFEST.SKIP # ourself
+^release$      # this is the tool to make the distro
+^t/cache/*     # ignore cache files
+^lib/test*     # ignore any test cases
+^.git          # ignore git repo
+~$             # ignore vi backup files
+.bak$          # ignore misc backup files
