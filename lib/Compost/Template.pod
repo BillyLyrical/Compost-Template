@@ -95,7 +95,7 @@ This should print:
 
 =over 4
 
-Note: even though these tags look like HTML they’re allowed to "break the rules".
+Note: even though these tags look like HTML theyre allowed to "break the rules".
 Some thing like:
 
    <img src="<% $image_source %>">
