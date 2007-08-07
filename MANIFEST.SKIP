@@ -1,6 +1,6 @@
 ^MANIFEST.SKIP
 ^release$
-^t/cache/*
+^t/cache/*.cache$
 ^lib/test*
 ^.git
 ~$
