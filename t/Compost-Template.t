@@ -3,7 +3,9 @@
 
 #########################
 
-use Test::More tests => 44;
+use lib '/dox/git/Compost-Template/lib/';
+
+use Test::More tests => 46;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -247,12 +249,26 @@ $template->set_call( 'test',
 $reply = $template->param( name => 'world' )->run();
 is( $reply, 'hello world', 'call' );
 
+# ------------------------------------------------
+# anonymous array vars
+$template = Compost::Template->new(
+    template => '<% loop $array %> <% $_ %><% /loop -%>',
+);
+$reply = $template->param( array => [ 1, 3, \5, 7, ] )->run();
+is( $reply, ' 1 3 5 7', 'anon array' );
+
+# ------------------------------------------------
+# <% $var -shrug %>  - need to be able to stack -opts
+$template = Compost::Template->new(
+    template => 'hey <% $novar -shrug -%> ho<% nop -%>',
+);
+$reply = $template->param( foo => 44 )->run();
+is( $reply, 'hey ho', 'var shrug' );
 
 
 # ------------------------------------------------
 # Wanna Test
 #  allow_relative_path
-# <% $var -shrug %>  - need to be able to stack -opts
 # <% $var or 'foo' %>
 # <% warn %> ... <% /warn %>
 # <% die  %> ... <% /die %>

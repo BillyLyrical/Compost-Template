@@ -44,7 +44,7 @@ my @testmap = (
 	\&_testLte,
 );
 
-my @varmap   = qw{ global html url };
+my @varmap   = qw{ global html url shrug };
 
 my $DEBUG = 0;
 
@@ -111,23 +111,21 @@ sub _opVar {
 	my $var = _get_var( $s, $s->{arg}[2], $global );
 	unless ( defined $var ) {
 		return $s->{arg}[1]
-		 if ( $s->{self}{CONFIG}{die_on_bad_params} == 0 );
+		 if ( $s->{self}{CONFIG}{die_on_bad_params} == 0
+		 or exists $options{shrug} );
 		die "Error: var '$s->{arg}[2]' is undefined\n";
 	}
 
 	# FIXME - is this ok?
 #	if ( ref $var eq 'CODE' ) { $var = &{ $var } }
 
-	if ( scalar @{ $s->{arg} } > 3 ) { # we have some options...
-		my $escape = $s->{arg}[3];
-		$s->{output} .=
-		    ( $escape == ESCAPE_URL  ) ? Compost::Template::Misc::url_encode( '', $var )
-		  : ( $escape == ESCAPE_HTML ) ? Compost::Template::Misc::htmlize   ( '', $var )
-		  : $var;
+	if ( exists $options{html} ) {
+		$var = Compost::Template::Misc::htmlize( '', $var );
 	}
-	else {
-		$s->{output} .= $var;
+	if ( exists $options{url} ) {
+		$var = Compost::Template::Misc::url_encode( '', $var );
 	}
+	$s->{output} .= $var;
 
 	return $s->{arg}[1];
 }
@@ -240,6 +238,14 @@ sub _blockLoop {
 	my $count = 0;
 	my $top = $#{ $list };
 	for my $item ( @$list ) {
+		# anon arrays
+		if ( ref $item eq '' ) {
+			$item = { __anon__ => $item };
+		}
+		elsif ( ref $item eq 'SCALAR' ) {
+			$item = { __anon__ => $$item };
+		}
+
 		# insert loop data tags
 		$item->{'__count__'} = $count + 1;
 		$item->{'__first__'} = 1 if $count == 0;
@@ -383,6 +389,13 @@ sub _testLte     {
 # -------------------------
 sub _get_var {
 	my ( $s, $name, $global ) = @_;
+
+	# anon arrays
+	if ( $name eq '$_' ) {
+		die "Anon array item called, but not found"
+		 unless ( exists $s->{pa}{__anon__} );
+		return $s->{pa}{__anon__}
+	}
 
 	return $name
 	 unless ( $name =~ s/^\$\b(\w+)/$1/ );
