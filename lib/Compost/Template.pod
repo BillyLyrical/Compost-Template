@@ -22,6 +22,7 @@ Compost::Template - Simple Templating
  <% $var -global %>             - insert global variable
  <% $var -html %>               - escape as html
  <% $var -url %>                - escape as url
+ <% $var -shrug %>              - don't fail if var not found
  <% $var.1.name %>              - intermix hashes and arrays
 
  <% map $t %> ... <% /map %>    - map to a hash
@@ -34,7 +35,8 @@ Compost::Template - Simple Templating
  <% switch $x %> <% when 4 %> ... <% when 5 %> ... <% /switch %>
 
  <% loop $x %> ... <% /loop %>
- <% counter %>
+ <% $_ %>              - anon array scalar items
+ <% counter %>         - the loops index number (as an op)
  __count__  - the index number of this loop ( like <% counter %> )
  __inner__  - is not true on the first or last pass
  __outer__  - is true on the first or last pass
@@ -208,6 +210,7 @@ an included file is not found, or can't be loaded...
  <% $var -global %>  - is a global variable, starts in root namespace
  <% $var -html %>    - escape as html
  <% $var -url %>     - escape as url
+ <% $var -shrug %>   - don't fail if the $var is undefined
 
 The <% $var %> tag is very simple.  For each <% $var %> tag in the
 template you call $template->param( var => "VALUE").  When
@@ -229,6 +232,19 @@ populates a URL.  It will do URL escaping, like replacing ' ' with '+'
 and '/' with '%2F'.
 
    <a href="http://foo.com/cgi/jump?<% $var -url %>">
+
+If the var is not very important, and you don't want the runtime
+to die if the var is nopt found, then use the '-shrug' option.
+
+  <% $somevar -shrug %>
+
+More than one var options can be used at a time...
+
+  <% $somevar -global -shrug -html %>
+
+Having '-html' and '-url' together probably makes no sense,
+however no warning is thrown.  Note: currently the '-html'
+option is run before the '-url' option.
 
 You can control whitespace (including newlines)  by starting (means
 swallow preceding whitespace) and/or ending (means swallow trailing
@@ -456,7 +472,6 @@ Basically, each <% loop $var %> gets an array reference.
 Inside the array are any number of hash references.
 These hashes contain the name=>value pairs for a single pass over the loop template.  
 
-
 Inside a <% loop %>, the only variables that are usable are the ones
 from the <% loop %>.  The variables in the outer blocks are not
 visible within a template loop.  For the computer-science geeks among
@@ -522,6 +537,15 @@ to the perl function join().  Example:
 Would output something like...
 
   Steve, Sue, Simon, Sally and Sebastion.
+
+Note: anonymous array items are allowed, using a var '$_'.
+This means that you can have an array of Scalars (or Scalar refs),
+without needing to be wrapped in a hash.
+
+  ie..
+	Code: array => [ 1, 4 , 7, 8 ]
+
+    Template: <% loop $array %> <% $_ %> <% /loop %>
 
 =item switch
 
