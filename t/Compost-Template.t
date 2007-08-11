@@ -3,7 +3,6 @@
 
 #########################
 
-use lib '/dox/git/Compost-Template/lib/';
 
 use Test::More tests => 46;
 BEGIN {
