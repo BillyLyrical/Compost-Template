@@ -210,7 +210,7 @@ is( $reply, 'THIS IS A TEST',    'format -uc' );
 # ------------------------------------------------
 # dynamic templates
 $template = Compost::Template->new(
-	template => 'Yes <% include include1.tmpl -%>',
+	template => 'Yes <% include include1.tmpl %>',
 	path     => './t/data',
 );
 $reply = $template->run();
