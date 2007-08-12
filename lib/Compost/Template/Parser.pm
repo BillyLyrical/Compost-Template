@@ -33,6 +33,7 @@ my %parsemap = (
 	FINISH     => \&_doFinish,
 );
 
+#my @opmap    = qw{ FINISH data var printf call startblock endblock   };
 my @opmap    = qw{ FINISH data var printf call startblock endblock   };
 my @blockmap = qw{ notif if else loop insert prefix map format state };
 
@@ -48,6 +49,7 @@ sub _parse {
 	my ( $self, $data ) = @_;
 
 	my $depth = $self->{CONFIG}{max_depth};
+	$$data .= '<%- [0:0] nop -%>'; # fix ugly appended \n bug
 	while ( $$data =~ m/<%[+-]?\s+\[\d+\:\d+\]\s+include\s+\S+?\s+(-shrug\s+)?[+-]?%>/ ) {
 
 		die "Illegal attempt to use Includes"

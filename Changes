@@ -1,6 +1,7 @@
 Revision history for Perl extension Compost::Template.
 
 0.6  Sun Aug  5 18:46:47 NZST 2007
+    - added anon array items & var -shrug
 	- pulled Compost::Template out of Compost tree, to be
 	  bundled alone
 	- lotsa bug fixes, tidied up documentation

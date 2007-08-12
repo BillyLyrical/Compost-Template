@@ -240,7 +240,7 @@ is( $reply, 'absolute', 'allow_absolute_path' );
 # ------------------------------------------------
 # call
 $template = Compost::Template->new(
-	template => '<% call test hello $name -%>',
+	template => '<% call test hello $name %>',
 );
 $template->set_call( 'test',
   sub { return join ' ', @_ }
@@ -251,7 +251,7 @@ is( $reply, 'hello world', 'call' );
 # ------------------------------------------------
 # anonymous array vars
 $template = Compost::Template->new(
-    template => '<% loop $array %> <% $_ %><% /loop -%>',
+    template => '<% loop $array %> <% $_ %><% /loop %>',
 );
 $reply = $template->param( array => [ 1, 3, \5, 7, ] )->run();
 is( $reply, ' 1 3 5 7', 'anon array' );
@@ -259,7 +259,7 @@ is( $reply, ' 1 3 5 7', 'anon array' );
 # ------------------------------------------------
 # <% $var -shrug %>  - need to be able to stack -opts
 $template = Compost::Template->new(
-    template => 'hey <% $novar -shrug -%> ho<% nop -%>',
+    template => 'hey <% $novar -shrug -%> ho',
 );
 $reply = $template->param( foo => 44 )->run();
 is( $reply, 'hey ho', 'var shrug' );
