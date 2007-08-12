@@ -49,7 +49,6 @@ sub _parse {
 	my ( $self, $data ) = @_;
 
 	my $depth = $self->{CONFIG}{max_depth};
-	$$data .= '<%- [0:0] nop -%>'; # fix ugly appended \n bug
 	while ( $$data =~ m/<%[+-]?\s+\[\d+\:\d+\]\s+include\s+\S+?\s+(-shrug\s+)?[+-]?%>/ ) {
 
 		die "Illegal attempt to use Includes"
@@ -65,8 +64,11 @@ sub _parse {
 			include
 			\s+(\S+?)\s+
 			((\-shrug)\s+)?
-			([+-]?%>)/
-		 my $f = $self->_include( $3, $5 || 0, $2 ); "$1 $2 nop \%>${ $f }<\% $2 nop $6"/exg;
+			([+-]?%>)
+			/
+			my $f = $self->_include( $3, $5 || 0, $2 );
+			"$1 $2 nop \%>${ $f }<\% $2 nop $6"
+			/exg;
 	}
 
 	die "Template has zero length"
@@ -545,7 +547,9 @@ sub _get_test {
 		return @params;
 	}
 	else {
-		die "Unknown conditional '" . join( ' ', @{ $bs->{arg} } ) . "' in '$bs->{chunk}' at $bs->{debug}";
+		die "Unknown conditional '"
+		 . join( ' ', @{ $bs->{arg} } )
+		 . "' in '$bs->{chunk}' at $bs->{debug}";
 	}
 
 
@@ -625,7 +629,7 @@ sub _add_debug_data {
 		s/(\<\%[-+]?\s)/$1\[$fid\:$c\] /g;
 		$buf .= "$_\n";
 	}
-
+	chomp  $buf;
 	return $buf;
 }
 
