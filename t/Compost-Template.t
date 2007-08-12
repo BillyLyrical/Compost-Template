@@ -268,6 +268,7 @@ is( $reply, 'hey ho', 'var shrug' );
 # ------------------------------------------------
 # Wanna Test
 #  allow_relative_path
+# <% fetch SOMEURL %>
 # <% $var or 'foo' %>
 # <% warn %> ... <% /warn %>
 # <% die  %> ... <% /die %>
