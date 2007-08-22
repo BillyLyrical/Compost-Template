@@ -248,12 +248,13 @@ sub _blockLoop {
 
 		# insert loop data tags
 		$item->{'__count__'} = $count + 1;
-		$item->{'__first__'} = ( $count == 0 )? 1 : 0;
-		$item->{'__last__'}  = ( $count == $top )? 1 : 0;
-		$item->{'__inner__'} = ( $count != 0 and $count != $top )? 1 : 0;
-		$item->{'__outer__'} = !$item->{'__inner__'};
-		$item->{'__even__'}  = ( $count % 2 )? 1 : 0;
-		$item->{'__odd__'}   = !$item->{'__even__'};
+		$item->{'__first__'} = 1 if $count == 0;
+		$item->{'__last__'}  = 1 if $count == $top;
+		$item->{'__inner__'} = 1
+		 if ( $count != 0 and $count != $top );
+
+		my $odd = ( $count % 2 ) ? '__even__' : '__odd__';
+		$item->{$odd} = 1;
 
 		my ( $ret, $jump )
 		 = $s->{self}->_process_commands( $s->{stack}, $item, $s->{cursor} + 1 );
