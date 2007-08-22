@@ -59,12 +59,12 @@ sub _parse {
 
 		# the 'nop's are there to conserve whitespace swallowing
 		$$data =~ s/
-			(<%[+-]?)\s+
-			(\[\d+\:\d+\])\s+
-			include
-			\s+(\S+?)\s+
-			((\-shrug)\s+)?
-			([+-]?%>)
+			(<%[+-]?)\s+       # $1
+			(\[\d+\:\d+\])\s+  # $2
+			include            # keyword
+			\s+(\S+?)\s+       # $3
+			((\-shrug)\s+)?    # $4 $5
+			([+-]?%>)          # $6
 			/
 			my $f = $self->_include( $3, $5 || 0, $2 );
 			"$1 $2 nop \%>${ $f }<\% $2 nop $6"
@@ -74,6 +74,7 @@ sub _parse {
 	die "Template has zero length"
 	 unless ( length $$data );
 	_trim( $data );
+	_expand_syntactic_sugar( $data );
 
 	my $global_state = {
 		chunks => [ split /(<%\s.+?\s%>)/s, $$data . '<% [0:0] FINISH %>' ],
@@ -95,10 +96,14 @@ sub _trim {
 	$$data =~ s{\s*<%\-\s*} {<% }g;
 	$$data =~ s{\s*\+%>\s*} { %> }g;
 	$$data =~ s{\s*<%\+\s*} { <% }g;
+}
 
+# -------------------------
+sub _expand_syntactic_sugar {
+	my $data = shift;
 	my $TG = qr/<%\s+(\[\d+\:\d+\])/;
 
-	# 'nop' is removed after whitespace triming
+	# 'nop' is removed
 	$$data =~ s{$TG\s+nop\s*%>} {}g;
 
 	# comments - another sort of nop
@@ -125,6 +130,7 @@ sub _process_tokens {
 		chunk  => '',  # whole tag - good for warnings
 		tag    => '',  # actual key word
 		arg    => [],  # args to tag
+		opt    => {},   # tag options
 		db     => '',  # debug info ( filename, line number )
 	};
 
@@ -140,7 +146,8 @@ sub _process_tokens {
 			next;
 		}
 
-		@{ $bs->{arg} } = grep { !/(^<%|%>$)/ } split /\s+/, $bs->{chunk};
+		@{ $bs->{arg} } = grep { !/(^<%|%>|\-\w+$)/ } split /\s+/, $bs->{chunk};
+		map{ $bs->{opt}{$_} = 1 } grep { /^\-\w+$/ } split /\s+/, $bs->{chunk};
 		$bs->{debug} = $gs->{self}->_debug( shift @{ $bs->{arg} } );
 		$bs->{chunk} =~ s/\[\d+\:\d+\]//;
 
@@ -193,6 +200,8 @@ sub _tidy_jump {
 
 # -------------------------
 # insert variable
+#    gs = global stack
+#    bs = block stack
 sub _doVar {
 	my ( $gs, $bs ) = @_;
 
@@ -201,13 +210,10 @@ sub _doVar {
 	 unless ( $name =~ m/^\$\b\w/ );
 	my @param = ( $name );
 
-	for ( @{ $bs->{arg} } ) {
-		m/^-global$/ and push @param, GLOBAL_VAR  and next;
-		m/^-html$/   and push @param, ESCAPE_HTML and next;
-		m/^-url$/    and push @param, ESCAPE_URL  and next;
-		m/^-shrug$/  and push @param, VAR_SHRUG   and next;
-		warn "Unknown option '$_' in $bs->{chunk}";
-	}
+	exists $bs->{opt}{-global} and push @param, GLOBAL_VAR;
+	exists $bs->{opt}{-html}   and push @param, ESCAPE_HTML;
+	exists $bs->{opt}{-url}    and push @param, ESCAPE_URL;
+	exists $bs->{opt}{-shrug}  and push @param, VAR_SHRUG;
 	_push_stack( $gs, OP_VAR, 'JUMP_NEXT', @param );
 
 	return 0;
@@ -499,7 +505,7 @@ sub _get_test {
 	 unless ( scalar @{ $bs->{arg} } );
 
 	# simple if defined test
-	if ( scalar @{ $bs->{arg} } == 0 ) {
+	if ( scalar @{ $bs->{arg} } == 1 ) {
 		my $var = $bs->{arg}[0];
 
 		if ( $var =~ m/^(0|1)$/ ) {

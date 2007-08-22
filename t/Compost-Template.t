@@ -2,9 +2,9 @@
 # `make test'. After `make install' it should work as `perl Compost-Template.t'
 
 #########################
+use lib '../lib/';
 
-
-use Test::More tests => 46;
+use Test::More tests => 57;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -198,8 +198,7 @@ $template = $factory->new( 'global.tmpl' );
 $reply = $template->param( test => 5, down => {
   test => 7 }
 )->run();
-is( $reply, ' 7 5 ',    'globals' );
-
+is( $reply, ' 7 5 ',  'globals' );
 
 # ------------------------------------------------
 # test formats
@@ -287,11 +286,11 @@ is( $reply, 'No', 'one argument if -shrug' );
 $template = Compost::Template->new(
     template => '<% if $var1 %>No<% elsif $var2 %>Yes<% /if %>',
 );
-$reply = $template->param( novar => 0  )->run();
+$reply = $template->param( var2 => 1  )->run();
 is( $reply, 'Yes', 'one argument elsif' );
 
 $template = Compost::Template->new(
-    template => '<% unless $var %>Yes<% else %>No<% /if %>',
+    template => '<% unless $var %>Yes<% else %>No<% /unless %>',
 );
 $reply = $template->param( var => 0  )->run();
 is( $reply, 'Yes', 'one argument unless' );
@@ -302,16 +301,16 @@ $template = Compost::Template->new(
     template => '<% loop $var %><% $__count__ %><% /loop %>',
 );
 $reply = $template->param( var => [ 23, 12, 53 ]  )->run();
-is( $reply, '012', 'loop __count__' );
+is( $reply, '123', 'loop __count__' );
 
 $template = Compost::Template->new(
-    template => '<% loop $var %><% if $__inner__ %>< $_ %><% /if %><% /loop %>',
+    template => '<% loop $var %><% if $__inner__ %><% $_ %><% /if %><% /loop %>',
 );
 $reply = $template->param( var => [qw{ a b c d e  }]  )->run();
 is( $reply, 'bcd', 'loop __inner__' );
 
 $template = Compost::Template->new(
-    template => '<% loop $var %><% if $__outer__ %><% $__outer__ %><% /if %><% /loop %>',
+    template => '<% loop $var %><% if $__outer__ %><% $_ %><% /if %><% /loop %>',
 );
 $reply = $template->param( var => [ 23, 12, 53 ]  )->run();
 is( $reply, '2353', 'loop __outer__' );
