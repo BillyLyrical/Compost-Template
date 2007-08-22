@@ -264,6 +264,76 @@ $template = Compost::Template->new(
 $reply = $template->param( foo => 44 )->run();
 is( $reply, 'hey ho', 'var shrug' );
 
+# ------------------------------------------------
+# one argument if/unless/elsif
+$template = Compost::Template->new(
+    template => '<% if $var %>Yes<% else %>No<% /if %>',
+);
+$reply = $template->param( var => 1  )->run();
+is( $reply, 'Yes', 'one argument if' );
+
+$template = Compost::Template->new(
+    template => '<% if $var %>Yes<% else %>No<% /if %>',
+);
+$reply = $template->param( var1 => 0  )->run();
+is( $reply, 'No', 'one argument else' );
+
+$template = Compost::Template->new(
+    template => '<% if $var -shrug %>Yes<% else %>No<% /if %>',
+);
+$reply = $template->param( novar => 0  )->run();
+is( $reply, 'No', 'one argument if -shrug' );
+
+$template = Compost::Template->new(
+    template => '<% if $var1 %>No<% elsif $var2 %>Yes<% /if %>',
+);
+$reply = $template->param( novar => 0  )->run();
+is( $reply, 'Yes', 'one argument elsif' );
+
+$template = Compost::Template->new(
+    template => '<% unless $var %>Yes<% else %>No<% /if %>',
+);
+$reply = $template->param( var => 0  )->run();
+is( $reply, 'Yes', 'one argument unless' );
+
+# ------------------------------------------------
+# test loops: __count__, __inner__, __outer__, __even__, __odd__, __first__, __last__
+$template = Compost::Template->new(
+    template => '<% loop $var %><% $__count__ %><% /loop %>',
+);
+$reply = $template->param( var => [ 23, 12, 53 ]  )->run();
+is( $reply, '012', 'loop __count__' );
+
+$template = Compost::Template->new(
+    template => '<% loop $var %><% if $__inner__ %>< $_ %><% /if %><% /loop %>',
+);
+$reply = $template->param( var => [qw{ a b c d e  }]  )->run();
+is( $reply, 'bcd', 'loop __inner__' );
+
+$template = Compost::Template->new(
+    template => '<% loop $var %><% if $__outer__ %><% $__outer__ %><% /if %><% /loop %>',
+);
+$reply = $template->param( var => [ 23, 12, 53 ]  )->run();
+is( $reply, '2353', 'loop __outer__' );
+
+$template = Compost::Template->new(
+    template => '<% loop $var %><% if $__even__ %><% $_ %><% /if %><% /loop %>',
+);
+$reply = $template->param( var => [qw{ a b c d e }]  )->run();
+is( $reply, 'bd', 'loop __even__' );
+
+$template = Compost::Template->new(
+    template => '<% loop $var %><% if $__odd__ %><% $_ %><% /if %><% /loop %>',
+);
+$reply = $template->param( var => [qw{ a b c d e }]  )->run();
+is( $reply, 'ace', 'loop __odd__' );
+
+$template = Compost::Template->new(
+    template => '<% loop $var %><% if $__first__ %><% $_ %><% elsif $__last__ %><% $_ %><% /if %><% /loop %>',
+);
+$reply = $template->param( var => [qw{ a b c d e }]  )->run();
+is( $reply, 'ae', 'loop __first__ & __last__' );
+
 
 # ------------------------------------------------
 # Wanna Test
