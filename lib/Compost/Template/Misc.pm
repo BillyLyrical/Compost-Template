@@ -2,7 +2,7 @@ package Compost::Template::Misc;
 
 use File::Spec;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 # -----------------------------------------
 # some utilty subs ripped from CGI::Minimal;

@@ -19,6 +19,7 @@ Compost::Template - Simple Templating
  <% include bar.tmpl -shrug %>  - include, ignore failure
 
  <% $var %>                     - insert variable
+ <% $var1 or $var2 or 'oops' %> - "or" variables  
  <% $var -global %>             - insert global variable
  <% $var -html %>               - escape as html
  <% $var -url %>                - escape as url
@@ -207,6 +208,7 @@ an included file is not found, or can't be loaded...
 =item Variables
 
  <% $var %>
+ <% $var1 or $var2 or 'oops' %> - "or" variables  
  <% $var -global %>  - is a global variable, starts in root namespace
  <% $var -html %>    - escape as html
  <% $var -url %>     - escape as url
@@ -217,6 +219,14 @@ template you call $template->param( var => "VALUE").  When
 the template is run the <% $var %> is replaced with the VALUE text
 you specified.  If you don't set a parameter it just gets skipped in
 the output.
+
+You can chain together $vars & strings, with the or command...
+
+  <% $var1 or $var2 or 'oops' %>
+
+This lets you try inserts till one succeeds.  This will also append to
+each var, any options you called. This is parsed in a hackish fashion,
+and currently will not report nicely if your syntax is broken.
 
 Optionally you can use the '-html' option in the tag to indicate
 that you want the value to be HTML-escaped before being returned from

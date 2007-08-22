@@ -5,7 +5,7 @@ package Compost::Template::Format;
 use strict;
 use Compost::Template::Misc;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 my %formats = (
 	uppercase  => \&_formatUppercase,

@@ -9,7 +9,7 @@ use warnings;
 use File::Spec;
 use Compost::Template::Misc;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 use constant {
 
