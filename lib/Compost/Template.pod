@@ -288,71 +288,64 @@ less than ( '<' ), less than or equals ( '<=' ).
 
 =item if
 
-  <% if $Parameter_Name %> ... <% /if %>
+  <% if $VAR %> ... <% /if %>
 
-The <% if %> tag allows you to include or not include a block of the
-template based on the value of a given parameter name.  If the
-parameter is given a value that is true for Perl - like '1' - then the
-block is included in the output.  If it is not defined, or given a
-false value - like '0' - then it is skipped.
+The <% if %> tag allows you to include or not include a block
+of the template based on the value of a given parameter name.
+If the parameter is given a value that is true(1) for Perl,
+then the block is included in the output.
+If it is undefined, or false(),  then it is skipped.
 
 Example Template:
 
-   <% if $boolean %>
-     Some text that only gets displayed if $boolean is true!
+   <% if $VAR %>
+     Some text that only gets displayed if $VAR is true!
    <% /if %>
 
-Now if you call $template->param(boolean => 1) then the above block will
-be included by output.
+Now if you call $template->param(boolean => 1)
+then the above block will be included by output.
 
-<% if %> <% /if %> blocks can include any valid Compost::Template
-construct - '$var's and 'loop's and other if/else blocks.  Note, however,
-that intersecting a <% if %> and a <% loop %> is invalid.
+<% if %> <% /if %> blocks can include any valid Compost::Template construct,
+$VARs and loops and other if/else blocks.
+Note, however, that intersecting a <% if %> and a <% loop %> is invalid.
 
    Not going to work:
-   <% if $boolean %>
-      <% loop $myLoop %>
+   <% if $VAR %>
+      <% loop $ARRAY %>
    <% /if %>
       <% /loop %>
 
 If the name of a 'loop' is used in a 'if', the 'if' block will
 output if the loop has at least one row.  Example:
 
-  <% if $loop_one %>
+  <% if $ARRAY %>
     This will output if the loop is not empty.
   <% /if %>
 
-WARNING: Much of the benefit of Compost::Template is in decoupling your
-Perl and HTML.  If you introduce numerous cases where you have
-'if's and matching Perl if()s, you will create a maintenance
-problem in keeping the two synchronized.  I suggest you adopt the
-practice of only using <% if %> if you can do so without requiring a
-matching if() in your Perl code.
-
 =item unless
 
-  <% unless $boolean %> ... <% /unless %>
+  <% unless $VAR %> ... <% /unless %>
 
-This tag is the opposite of <$ if %>.  The block is output if the
-$boolean is set false or not defined.  You can use
-<% else %> with <% unless %>, but not <% elsif %>.
+This tag is the opposite of <$ if %>.
+The block is output if the $VAR is false or undefined.
+You can use <% else %> with <% unless %>, but not with <% elsif %>.
 
   Example:
 
-  <% unless $BOOL %>
-    Some text that is output only if BOOL is FALSE.
+  <% unless $VAR %>
+    Some text that is output only if $VAR is FALSE.
   <% else %>
-    Some text that is output only if BOOL is TRUE.
+    Some text that is output only if $VAR is TRUE.
   <% /unless %>
 
-If the name of an array is used in a <% unless %>, the UNLESS block
-output if the loop has zero rows.
+If the name of an array is used in a <% unless %>,
+the unless block will run if the loop has zero rows.
 
-  <% unless $LOOP %>
-    This will output if the loop is empty.
+  <% unless $ARRAY %>
+    This will output if $ARRAY is empty.
   <% /unless %>
   
-  <% loop  %LOOP %>
+  <% loop $ARRAY %>
     ....
   <% /loop %>
 
@@ -571,17 +564,11 @@ complex tests <% when >= 32 %>.  <% else %> is not required.
 
 =item map
 
- <% map $t %>   - must be a hash ref
-   <% $var %>   - 'var' is a key in the hash
- <% /map %>
+ <% map $users.list %>     - must be a hash ref
+   <% $id %> : <% $name %> - $id = $users.list.$__count__.id
 
-'map' is sort of the hash version of 'loop', it can be useful in
-situations like...
-
- <% map $foo.3 %> ... <% /map %>
-
-...where $foo is an array ref, and you just want the 4th (counting 
-from zero remember) element, which would be a hash ref.
+'map' is sort of the hash version of 'loop',
+it moves namespace from the root of global namespace.
 
 =item printf
 
@@ -621,7 +608,8 @@ You can add your own formats...
 
  <% state State *.happy %> ... <% /state %>
 
-'state' uses a seperate namespace, setup with the set_state()
+<% state %> is an aid for managing complex template files.
+state uses a seperate namespace, setup with the set_state()
 method, and interrogated with the get_state() method.
 
 set_state takes a name and a value, the name is assumed to be some
@@ -643,7 +631,6 @@ so, given set_state( 'Action', 'cgi.set.age' ), these will match
 
 You can have as many 'state' key names as you like.
 
-<% state %> is an aid for managing complex template files.
 
 'state's are labels containing symbols delimited by dots '.',
 you set them with set_state( $name, $label ), and can test whether
