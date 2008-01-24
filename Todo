@@ -1,0 +1,58 @@
+Todo
+
+use eval{} to test libs available.
+use ecsape & unescape from  CGI::Util;
+
+We already have multidimensional namespace
+  <% $folk.1.contact.address.city %>
+
+add <% random $LIST %>
+
+add dice <% 2d6+1 %>
+
+add chaining by ';' <% $salutations ; $proposal ; $invoice ; $threat ; $signature %>
+
+add assignment
+  <% $foo = $val %>
+  <% state Z = x.y %>
+
+control flow is what state is for.
+  <% state Foo = page.open.index %>
+
+add dynamc namespace
+  <% $x.$y.$z %>
+  <% state $Z = $x.$y %>
+
+i could add
+  <% $__line__ %>  current line number of template
+  <% $__file__ %>  current template file
+  <% $__user__ %>  current username?
+  <% $__time__ %>  current time, but what format?
+
+i was thinking about data filters, compost shims.
+ <% shim Yaml $yamldata %> ... <% /shim %>
+
+brings that parsed yaml data structure into the global hash,
+till the end tag.
+
+More verbosely
+ <% shim Yaml -file $file -namespace shim %> ... <% /shim %>
+
+parses $file and roots the namespace in 'shim'..
+  <% $shim.config %>
+
+also, the pulling in shimed data as a template object method
+  $template->set_shim( 'Yaml', $data );
+
+there could be shims for...
+  DBI, XML, Yaml, Bdb, CSV,
+  splitting stdin on columns/fields,
+  splitting stdin on simple matches,
+  splitting log files, 
+
+parser should catch errors like <$ switch %>
+and nonexistant parameters,
+
+report em early - with line numbers
+
+
