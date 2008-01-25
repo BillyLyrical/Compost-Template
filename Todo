@@ -55,4 +55,90 @@ and nonexistant parameters,
 
 report em early - with line numbers
 
+# thinking out loud...
+
+you've got a global namespace
+ supplied by code, it's the default namespace.
+ we don't want it to be changed by feeding it to Compost.
+
+and a state namespace, also supplied by code,
+ it's key value and the values can be grepped.
+
+if the best way to solve the inner loop namespace bug,
+ is to create a template working namespace.
+
+this raises two issues, symbols and assignment.
+
+we could go the perl route..
+  $var   : the global var
+  @var   : private vars like in ruby
+  %state : is like <% %>, it still does control stuff
+
+
+questions:
+  do they all interpolate in strings,
+    and therefore must be escaped?  - would say no
+  can @var use nested namespace?
+    ie, can we <% loop @var %>
+
+or go the keyword way
+
+currently state is <% state Foo page.* %>
+ which uses a keyword, and asks
+  if $state.Foo =~ /^page\.\w.*/
+
+private vars may use
+  <% my $foo = $bar %>
+hmmmm
+
+so assignment to...
+   $var   - not allowed
+   @var    - allowed (put loop vars here, @FIRST @EVEN @COUNT)
+   %state  - allowed, must be /^\w+(\.\w+)*$/
+
+it doesn't solve our current namespace issue,
+so we need a way to refer to global, current,
+previous, previous previous, ...
+
+we currently specify global namespace root by
+ <% $foo -global %>
+we could specify previous by..
+ <% $foo -prev %>
+
+Or we could use symbols
+  $var     - current namespace
+  $.var    - rooted in global namespace (removes need for -global)
+  $..var   - up one nesting
+  $...var  - up two nestings
+
+this solves many of the above issues,
+and doesn't require assignment.
+
+unless you wanna add it...
+  $:var (put loop vars here, $:FIRST $:EVEN $:COUNT)
+  <% $:var = $var %>
+
+hmmmm
+  <% $:var = [ 5, 4, 3, 2 ] %>  it creates an arrayref
+  <% $:var = { foo => $bar } %> creates a hashref
+yucky
+
+also, of course
+  <% random $list %> ... <% /random %>
+  <% 2d6-2 %> 0..10
+
+and random Hexadecimal
+ uppercase <% 2dX %> 00..FF
+ lowercase <% 2dx %> 00..ff
+
+how about random binary
+   <% 1d2-1 %> 0..1
+   <% 8dB %>  00000000...11111111
+
+ok howabout random letter of the alphabet
+ uppercase <% 2dA %> AA..ZZ
+ lowercase <% 2dx %> 00..ff
+
+
+
 
