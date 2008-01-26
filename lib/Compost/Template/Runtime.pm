@@ -90,7 +90,9 @@ sub _opFinish {  # should have bailed before we got here
 # -------------------------
 sub _opData {
 	my $s = shift;
-	$s->{output} .= $s->{arg}[3];
+
+	defined $s->{arg}[3]
+     and $s->{output} .= $s->{arg}[3];
 	return $s->{arg}[2];
 }
 
@@ -347,8 +349,11 @@ sub _testDefined {
 # -------------------------
 sub _testEquals  {
 	my ( $s, $args ) = @_;
+
 	my $var1 = _get_var( $s, $args->[0], 0 );
 	my $var2 = _get_var( $s, $args->[1], 0 );
+    $var1 ||= '';
+    $var2 ||= '';
 	return ( $var1 eq $var2 ) ? 1 : 0;
 }
 
