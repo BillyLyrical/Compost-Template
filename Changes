@@ -1,5 +1,9 @@
 Revision history for Perl extension Compost::Template.
 
+0.08  Sat Jan 26
+    - fixed small bug with -global option
+    - added line number error reporting for Runtime
+
 0.07  Wed Aug 22 17:40:05 NZST 2007
     - fixed <% if $var %>
     - added parsing of -opts
