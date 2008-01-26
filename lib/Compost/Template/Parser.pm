@@ -172,8 +172,9 @@ sub _process_tokens {
 		chunk  => '',  # whole tag - good for warnings
 		tag    => '',  # actual key word
 		arg    => [],  # args to tag
-		opt    => {},   # tag options
-		db     => '',  # debug info ( filename, line number )
+		opt    => {},  # tag options
+		debug  => '',  # debug info ( filename, line number )
+        gs     => $gs, # pointer to global state
 	};
 
 	while ( scalar @{ $gs->{chunks} } ) {
@@ -184,16 +185,19 @@ sub _process_tokens {
 
 		# not a command, output as is
 		unless ( $bs->{chunk} =~ m/^<%/ ) {
-			_push_stack( $gs, OP_DATA, 'JUMP_NEXT', $bs->{chunk} );
+			_push_stack( $gs, '[0:0]', OP_DATA, 'JUMP_NEXT', $bs->{chunk} );
 			next;
 		}
 
 		@{ $bs->{arg} } = grep { !/(^<%|%>|\-\w+$)/ } split /\s+/, $bs->{chunk};
+        $bs->{opt} = {};
 		map{ $bs->{opt}{$_} = 1 } grep { /^\-\w+$/ } split /\s+/, $bs->{chunk};
-		$bs->{debug} = $gs->{self}->_debug( shift @{ $bs->{arg} } );
+
+		#$bs->{debug} = $gs->{self}->_debug( shift @{ $bs->{arg} } );
+		$bs->{debug} = shift @{ $bs->{arg} };
 		$bs->{chunk} =~ s/\[\d+\:\d+\]//;
 
-		die "No tags in '$bs->{chunk}' at $bs->{debug}\n"
+		die "No tags in '$bs->{chunk}' " . _debug( $bs )
 		 unless scalar @{ $bs->{arg} };
 
 		$bs->{tag} = ( $bs->{arg}[0] =~ m/^\$\b\w/ ) ? 'var' : shift @{ $bs->{arg} };
@@ -203,7 +207,7 @@ sub _process_tokens {
 			return $bs;
 		}
 		else {
-			die "Unknown tag '$bs->{tag}' in '$bs->{chunk}' at $bs->{debug}\n"
+			die "Unknown tag '$bs->{tag}' in '$bs->{chunk}' " . _debug( $bs )
 			 unless ( exists $parsemap{ $bs->{tag} } );
 
 			&{ $parsemap{ $bs->{tag} } }( $gs, $bs );
@@ -215,13 +219,13 @@ sub _process_tokens {
 # -------------------------
 # handy - returns index
 sub _push_stack {
-	my ( $gs, $op, $jumpnext, @args ) = @_;
+	my ( $gs, $db, $op, $jumpnext, @args ) = @_;
 
 	if ( $jumpnext eq 'JUMP_NEXT' ) {
 		$jumpnext = scalar @{ $gs->{stack} } + 1;
 	}
-	push @{ $gs->{stack} }, [ $op, $jumpnext, @args ];
 
+	push @{ $gs->{stack} }, [ $db, $op, $jumpnext, @args ];
 	return $#{ $gs->{stack} };
 }
 
@@ -230,14 +234,14 @@ sub _push_stack {
 sub _tidy_jump {
 	my ( $gs, $pos, $expected, $replacement ) = @_;
 
-	die "Unexpected Jump var '$gs->{stack}[$pos][1]'"
+	die "Unexpected Jump var '$gs->{stack}[$pos][2]'"
 	 . " in stack \#${pos}\n (expected $expected)"
-	 unless ( $gs->{stack}[$pos][1] eq $expected );
+	 unless ( $gs->{stack}[$pos][2] eq $expected );
 
 	$replacement = scalar @{ $gs->{stack} }
 	 if ( $replacement eq 'NEXT' );
 
-	$gs->{stack}[$pos][1] = $replacement;
+	$gs->{stack}[$pos][2] = $replacement;
 }
 
 # -------------------------
@@ -248,15 +252,17 @@ sub _doVar {
 	my ( $gs, $bs ) = @_;
 
 	my $name = shift @{ $bs->{arg} };
-	die "Bad variable '$name' in $bs->{chunk} at $bs->{debug}"
+	die "Bad variable '$name' in $bs->{chunk} " . _debug( $bs )
 	 unless ( $name =~ m/^\$\b\w/ );
 	my @param = ( $name );
 
+#print (exists $bs->{opt}{-global} )?  "Global" : "Local";
+#print $param[0] . "\n";
 	exists $bs->{opt}{-global} and push @param, GLOBAL_VAR;
 	exists $bs->{opt}{-html}   and push @param, ESCAPE_HTML;
 	exists $bs->{opt}{-url}    and push @param, ESCAPE_URL;
 	exists $bs->{opt}{-shrug}  and push @param, VAR_SHRUG;
-	_push_stack( $gs, OP_VAR, 'JUMP_NEXT', @param );
+	_push_stack( $gs, $bs->{debug}, OP_VAR, 'JUMP_NEXT', @param );
 
 	return 0;
 }
@@ -267,29 +273,29 @@ sub _doIf {
 	my ( $gs, $bs ) = @_;
 
 	my @elses;
-	my $prev   = _push_stack( $gs, OP_STARTBLOCK, 'JUMP_ELSE', BLOCK_IF, _get_test( $bs ) );
+	my $prev   = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_ELSE', BLOCK_IF, _get_test( $bs ) );
 	my $newbs  = _process_tokens( $gs );
-	push @elses, _push_stack( $gs, OP_ENDBLOCK, 'JUMP_END', BLOCK_IF );
+	push @elses, _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_END', BLOCK_IF );
 
 	while ( $newbs->{tag} eq 'elsif' ) {
-		my $top = _push_stack( $gs, OP_STARTBLOCK, 'JUMP_ELSE', BLOCK_IF, _get_test( $newbs ) );
+		my $top = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_ELSE', BLOCK_IF, _get_test( $newbs ) );
 		_tidy_jump( $gs, $prev, 'JUMP_ELSE', $top );
 		$prev = $top;
 		$newbs = _process_tokens( $gs );
-		push @elses, _push_stack( $gs, OP_ENDBLOCK, 'JUMP_END', BLOCK_IF );
+		push @elses, _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_END', BLOCK_IF );
 	}
 
 	if ( $newbs->{tag} eq 'else' ) {
-		my $top = _push_stack( $gs, OP_STARTBLOCK, 'JUMP_NEXT', BLOCK_ELSE );
+		my $top = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_NEXT', BLOCK_ELSE );
 		_tidy_jump( $gs, $prev, 'JUMP_ELSE', $top );
 		$newbs = _process_tokens( $gs );
-		_push_stack( $gs, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_ELSE );
+		_push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_ELSE );
 	}
 	else {
 		_tidy_jump( $gs, $prev, 'JUMP_ELSE', 'NEXT' );
 	}
 
-	die "Bad end to if block '$newbs->{tag}' at $bs->{debug}"
+	die "Bad end to if block '$newbs->{tag}' " . _debug( $bs )
 	 unless ( $newbs->{tag} eq '/if' );
 
 	for ( @elses ) {
@@ -303,18 +309,18 @@ sub _doUnless {
 	my ( $gs, $bs ) = @_;
 	my @elses;
 
-	my $prev  = _push_stack( $gs, OP_STARTBLOCK, 'JUMP_ELSE', BLOCK_NOTIF, _get_test( $bs ) );
+	my $prev  = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_ELSE', BLOCK_NOTIF, _get_test( $bs ) );
 	my $newbs = _process_tokens( $gs );
-	push @elses, _push_stack( $gs, OP_ENDBLOCK, 'JUMP_END', BLOCK_NOTIF );
+	push @elses, _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_END', BLOCK_NOTIF );
 	_tidy_jump( $gs, $prev, 'JUMP_ELSE', 'NEXT' );
 
 	if ( $newbs->{tag} eq 'else' ) {
-		_push_stack( $gs, OP_STARTBLOCK, 'JUMP_NEXT', BLOCK_ELSE );
+		_push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_NEXT', BLOCK_ELSE );
 		$newbs = _process_tokens( $gs );
-		_push_stack( $gs, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_ELSE );
+		_push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_ELSE );
 	}
 
-	die "Bad end to unless block '$newbs->{tag}' at $bs->{debug}"
+	die "Bad end to unless block '$newbs->{tag}' " . _debug( $bs )
 	 unless ( $newbs->{tag} eq '/unless' );
 
 	for ( @elses ) {
@@ -327,20 +333,20 @@ sub _doUnless {
 sub _doLoop {
 	my ( $gs, $bs ) = @_;
 
-	die "No Token name in '$bs->{chunk}' at $bs->{debug}"
+	die "No Token name in '$bs->{chunk}' " . _debug( $bs )
 	  unless scalar @{ $bs->{arg} };
 
 	my $name = shift @{ $bs->{arg} };
-	die "Bad variable name '$name' at $bs->{debug}"
+	die "Bad variable name '$name' " . _debug( $bs )
 	 unless ( $name =~ m/^\$\b\w+/ );
 
-	my $start = _push_stack( $gs, OP_STARTBLOCK, 'JUMP_END', BLOCK_LOOP, $name );
+	my $start = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_END', BLOCK_LOOP, $name );
 	my $newbs = _process_tokens( $gs );
 
-	die "Bad end to loop block '$newbs->{tag}' at $bs->{debug}"
+	die "Bad end to loop block '$newbs->{tag}' " . _debug( $bs )
 	 unless ( $newbs->{tag} eq '/loop' );
 
-	my $end   = _push_stack( $gs, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_LOOP );
+	my $end   = _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_LOOP );
 	_tidy_jump( $gs, $start, 'JUMP_END', $end + 1);
 }
 
@@ -348,7 +354,7 @@ sub _doLoop {
 # loop counter
 sub _doCounter {
 	my ( $gs, $bs ) = @_;
-	_push_stack( $gs, OP_VAR, 'JUMP_NEXT', '$__count__' );
+	_push_stack( $gs, $bs->{debug}, OP_VAR, 'JUMP_NEXT', '$__count__' );
 }
 
 # -------------------------
@@ -356,22 +362,22 @@ sub _doCounter {
 sub _doMap {
 	my ( $gs, $bs ) = @_;
 
-	die "No variable name in '$bs->{chunk}' at $bs->{debug}"
+	die "No variable name in '$bs->{chunk}' " . _debug( $bs )
 	  unless scalar @{ $bs->{arg} };
 
 	my $name = shift @{ $bs->{arg} };
-	die "Bad variable name '$name' at $bs->{debug}"
+	die "Bad variable name '$name' " . _debug( $bs )
 	 unless ( $name =~ m/^\$\b\w+/ );
 
-	my $start = _push_stack( $gs, OP_STARTBLOCK, 'JUMP_END', BLOCK_MAP, $name );
+	my $start = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_END', BLOCK_MAP, $name );
 	my $newbs = _process_tokens( $gs );
-	die "Bad 'map', no closing tag? at $bs->{debug}"
+	die "Bad 'map', no closing tag? " . _debug( $bs )
 	 if ( $newbs == 0 );
 
-	die "Bad end to map block '$newbs->{tag}' at $bs->{debug}"
+	die "Bad end to map block '$newbs->{tag}' " . _debug( $bs )
 	 unless ( $newbs->{tag} eq '/map' );
 
-	my $end   = _push_stack( $gs, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_MAP );
+	my $end   = _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_MAP );
 	_tidy_jump( $gs, $start, 'JUMP_END', $end );
 }
 
@@ -380,11 +386,11 @@ sub _doSwitch {
 	my ( $gs, $bs ) = @_;
 	my @elses;
 
-	die "No variable name in '$bs->{chunk}' at $bs->{debug}"
+	die "No variable name in '$bs->{chunk}' " . _debug( $bs )
 	  unless scalar @{ $bs->{arg} } == 1;
 
 	my $name = shift @{ $bs->{arg} };
-	die "Bad variable name '$name' at $bs->{debug}"
+	die "Bad variable name '$name' " . _debug( $bs )
 	 unless ( $name =~ m/^\$\b\w+/ );
 
 	my $newbs = _process_tokens( $gs );
@@ -398,28 +404,28 @@ sub _doSwitch {
 			$newbs->{arg} = [ $name, @{ $newbs->{arg} } ];
 		}
 		else {
-			die "Unknown args to 'when' in '$newbs->{chunk} at $bs->{debug}";
+			die "Unknown args to 'when' in '$newbs->{chunk} " . _debug( $bs )
 		}
 
-		my $top = _push_stack( $gs, OP_STARTBLOCK, 'JUMP_ELSE', BLOCK_IF, _get_test( $newbs ) );
+		my $top = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_ELSE', BLOCK_IF, _get_test( $newbs ) );
 		$prev != -1 and _tidy_jump( $gs, $prev, 'JUMP_ELSE', $top );
 		$prev = $top;
 		$newbs = _process_tokens( $gs );
-		push @elses, _push_stack( $gs, OP_ENDBLOCK, 'JUMP_END', BLOCK_IF );
+		push @elses, _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_END', BLOCK_IF );
 	}
 
 	if ( $newbs->{tag} eq 'else' ) {
-		my $top = _push_stack( $gs, OP_STARTBLOCK, 'JUMP_NEXT', BLOCK_ELSE );
+		my $top = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_NEXT', BLOCK_ELSE );
 		$prev != -1 and _tidy_jump( $gs, $prev, 'JUMP_ELSE', $top );
 		$prev = $top;
 		$newbs = _process_tokens( $gs );
-		_push_stack( $gs, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_ELSE );
+		_push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_ELSE );
 	}
 	else {
 		$prev != -1 and _tidy_jump( $gs, $prev, 'JUMP_ELSE', 'NEXT' );
 	}
 
-	die "Bad end to switch block '$newbs->{tag}' at $bs->{debug}"
+	die "Bad end to switch block '$newbs->{tag}' " . _debug( $bs )
 	 unless ( $newbs->{tag} eq '/switch' );
 
 	for ( @elses ) {
@@ -431,18 +437,18 @@ sub _doSwitch {
 sub _doCall {
 	my ( $gs, $bs ) = @_;
 
-	die "No call name in '$bs->{chunk}' at $bs->{debug}"
+	die "No call name in '$bs->{chunk}' " . _debug( $bs )
 	  unless scalar @{ $bs->{arg} };
 	my $call = shift @{ $bs->{arg} };
 
-	_push_stack( $gs, OP_CALL, 'JUMP_NEXT', $call, @{ $bs->{arg} } );
+	_push_stack( $gs, $bs->{debug}, OP_CALL, 'JUMP_NEXT', $call, @{ $bs->{arg} } );
 }
 
 # -------------------------
 sub _doPrintf {
 	my ( $gs, $bs ) = @_;
 
-	die "No printf format in '$bs->{chunk}' at $bs->{debug}"
+	die "No printf format in '$bs->{chunk}' " . _debug( $bs )
 	  unless scalar @{ $bs->{arg} };
 
 	my $format = shift @{ $bs->{arg} };
@@ -453,12 +459,12 @@ sub _doPrintf {
 			# look thru' args till we find a matching quote closing
 			# FIXME - not the best solution
 			while (1) {
-				die "Unbalanced quoted printf format in '$bs->{chunk}' at $bs->{debug}"
+				die "Unbalanced quoted printf format in '$bs->{chunk}' " . _debug( $bs )
 				 unless scalar @{ $bs->{arg} };
 				$format .= ' ' .  shift @{ $bs->{arg} };
 				last if $format =~ m/$quote$/;
 			}
-			die "No printf variables in '$bs->{chunk}' at $bs->{debug}"
+			die "No printf variables in '$bs->{chunk}' " . _debug( $bs )
 			 unless scalar @{ $bs->{arg} };
 		}
 		$format =~ s/^$quote//;
@@ -466,10 +472,10 @@ sub _doPrintf {
 	}
 	# FIXME - should printf formats always use quotes?
 
-	die "Bad printf format in'$format' at $bs->{debug}"
+	die "Bad printf format in'$format' " . _debug( $bs )
 	 unless ( $format =~ m/\%/ );
 
-	_push_stack( $gs, OP_PRINTF, 'JUMP_NEXT', $format, @{ $bs->{arg} } );
+	_push_stack( $gs, $bs->{debug}, OP_PRINTF, 'JUMP_NEXT', $format, @{ $bs->{arg} } );
 }
 
 # -------------------------
@@ -486,22 +492,22 @@ sub _doIgnore {
 sub _doFormat {
 	my ( $gs, $bs ) = @_;
 
-	die "No Format name in '$bs->{chunk}' at $bs->{debug}"
+	die "No Format name in '$bs->{chunk}' " . _debug( $bs )
 	  unless scalar @{ $bs->{arg} };
 
 	my $format = shift @{ $bs->{arg} };
 
 	# check format types
-	die "Bad format '$format' at $bs->{debug}"
+	die "Bad format '$format' " . _debug( $bs )
 	 unless ( $format =~ m/^\w+$/ );
 
-	my $start = _push_stack( $gs, OP_STARTBLOCK, 'JUMP_END', BLOCK_FORMAT, $format );
+	my $start = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_END', BLOCK_FORMAT, $format );
 	my $newbs = _process_tokens( $gs );
 
-	die "Bad end to format block '$newbs->{tag}' at $bs->{debug}"
+	die "Bad end to format block '$newbs->{tag}' " . _debug( $bs )
 	 unless ( $newbs->{tag} eq '/format' );
 
-	my $end   = _push_stack( $gs, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_FORMAT );
+	my $end   = _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_FORMAT );
 	_tidy_jump( $gs, $start, 'JUMP_END', $end );
 }
 
@@ -509,32 +515,32 @@ sub _doFormat {
 sub _doState {
 	my ( $gs, $bs ) = @_;
 
-	die "No State name in '$bs->{chunk}' at $bs->{debug}"
+	die "No State name in '$bs->{chunk}' " . _debug( $bs )
 	  unless scalar @{ $bs->{arg} };
 	my $state = shift @{ $bs->{arg} };
-	die "Bad state '$state' in '$bs->{chunk}' at $bs->{debug}"
+	die "Bad state '$state' in '$bs->{chunk}' " . _debug( $bs )
 	 unless ( $state =~ m/^\w+$/ );
 
-	die "No match in '$bs->{chunk}' at $bs->{debug}"
+	die "No match in '$bs->{chunk}' " . _debug( $bs )
 	  unless scalar @{ $bs->{arg} };
 	my $val = shift @{ $bs->{arg} };
 
 	my $regex = _make_match( $val )
-	 or die "Bad match '$val' in '$bs->{chunk}' at $bs->{debug}";
-	my $start = _push_stack( $gs, OP_STARTBLOCK, 'JUMP_END', BLOCK_STATE, $state, $regex );
+	 or die "Bad match '$val' in '$bs->{chunk}' " . _debug( $bs );
+	my $start = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_END', BLOCK_STATE, $state, $regex );
 	my $newbs = _process_tokens( $gs );
 
-	die "Bad end to state block '$newbs->{tag}' at $bs->{debug}"
+	die "Bad end to state block '$newbs->{tag}' " . _debug( $bs )
 	 unless ( $newbs->{tag} eq '/state' );
 
-	my $end = _push_stack( $gs, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_STATE );
+	my $end = _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_STATE );
 	_tidy_jump( $gs, $start, 'JUMP_END', 'NEXT' );
 }
 
 # -------------------------
 sub _doFinish {
 	my ( $gs, $bs ) = @_;
-	_push_stack( $gs, OP_FINISH, -1 );
+	_push_stack( $gs, $bs->{debug}, OP_FINISH, -1 );
 }
 
 # ===================================================================
@@ -543,7 +549,7 @@ sub _doFinish {
 sub _get_test {
 	my $bs = shift;
 
-	die "No args for conditional in '$bs->{chunk}' at $bs->{debug}"
+	die "No args for conditional in '$bs->{chunk}' " . _debug( $bs )
 	 unless ( scalar @{ $bs->{arg} } );
 
 	# simple if defined test
@@ -554,7 +560,7 @@ sub _get_test {
 			return ( TEST_EQUALS, '1', $var );	
 		}
 
-		die "Unknown variable name '$var' in '$bs->{chunk}' at $bs->{debug}"
+		die "Unknown variable name '$var' in '$bs->{chunk}' " . _debug( $bs )
 		 unless ( $var =~ m/^\$\b\w+$/ );
 		return ( TEST_DEFINED, $var );	
 	}
@@ -572,7 +578,7 @@ sub _get_test {
 			m/^>=$/  and $state = TEST_GTE    and last;
 			m/^<$/   and $state = TEST_LT     and last;
 			m/^<=$/  and $state = TEST_LTE    and last;
-			die "Unknown test '$_' in '$bs->{chunk}' at $bs->{debug}";
+			die "Unknown test '$_' in '$bs->{chunk}' " . _debug( $bs )
 		}
 
 		my @params;
@@ -580,7 +586,7 @@ sub _get_test {
 		push @params, $state;
 
 		unless ( defined $var2 ) {
-			die "var2 not defined in '$bs->{chunk} at $bs->{debug}";
+			die "var2 not defined in '$bs->{chunk} " . _debug( $bs )
 		}
 
 		if ( $var2 =~ m/^\"(.*?)\"$/ ) { # double quoted
@@ -597,7 +603,7 @@ sub _get_test {
 	else {
 		die "Unknown conditional '"
 		 . join( ' ', @{ $bs->{arg} } )
-		 . "' in '$bs->{chunk}' at $bs->{debug}";
+		 . "' in '$bs->{chunk}' " . _debug( $bs );
 	}
 
 
@@ -619,10 +625,12 @@ sub _include {
 	unless ( defined $db ) { # it's the initial include
 		$db = '[0:0]';
 	}
-	my $debug = $s->_debug( $db );
+    my $bs = { gs => $s, debug => $db };
 
+##	my $debug = $s->_debug( $db );
+##print "_include : $db\n";
 	defined $file
-	 or die "Undefined include file name, at $debug";
+	 or die "Undefined include file name, " . _debug( $bs );
 
 	return \$s->{_FILE_CACHE}{$file}
 	 if ( exists $s->{_FILE_CACHE}{$file} );
@@ -637,7 +645,7 @@ sub _include {
 			return \'';
 		}
 
-		die "Unable to find file '$file' at $debug"
+		die "Unable to find file ($db) '$file' " . _debug( $bs )
 		 . "\n in PATH...\n"
 		 . join( "\n", @{ $s->{CONFIG}{path} } )
 		 . "\n";
@@ -652,11 +660,11 @@ sub _include {
 			return \'';
 		}
 
-		die "Unable to open include file '$fname' at $debug:$!\n";
+		die "Unable to open include file '$fname' " . _debug( $bs ) . ":$!\n";
 	}
 
 	sysread( $fh, my $buf, -s $fname )
-	 or die "Unable to sysread file '$fname' at $debug:$!";
+	 or die "Unable to sysread file '$fname' " . _debug( $bs ) . ":$!";
 	close $fh;
 
 	# FIXME - use refs more - esp in $s->{_FILE_CACHE}
@@ -683,13 +691,16 @@ sub _add_debug_data {
 
 # -------------------------
 sub _debug {
-	my ( $s, $d ) = @_;
+	my ( $bs ) = @_;
 
-	$d =~ m/^\[(\d+)\:(\d+)\]$/
-	 or die "Bad debug info '$d'";
+#my ( $p, $fi, $l ) = caller;
+#print "DEBUG($bs->{debug}) called by $l\n";
 
-	my $f = ( exists $s->{_INCLUDE_FILES} ) ?
-	 $s->{_INCLUDE_FILES}[$1] : $s->{CONFIG}{filename};
+	$bs->{debug} =~ m/^\[(\d+)\:(\d+)\]$/
+	 or die "Bad debug info '$bs->{debug}'";
+
+	my $f = ( exists $bs->{gs}{_INCLUDE_FILES} ) ?
+	 $bs->{gs}{_INCLUDE_FILES}[$1] : $bs->{gs}{CONFIG}{filename};
 
 	return "$f:$2";
 }

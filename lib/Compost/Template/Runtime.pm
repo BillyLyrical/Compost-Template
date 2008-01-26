@@ -69,8 +69,10 @@ sub _process_commands {
 		# debug...
 		$DEBUG and print "$state->{cursor}: " . join( ' ', @{ $state->{arg} } ) . "\n";
 
-		my $op = $state->{arg}[0];
+		my $op = $state->{arg}[1];
 		return $state->{output} if $op == OP_FINISH;
+        $state->{_INCLUDE_FILES} = $self->{_INCLUDE_FILES};
+        $state->{CONFIG} = $self->{CONFIG};
 
 		# mode: normal, next, endblock, finish
 		my ( $jump, $mode ) = &{ $opmap[$op] }( $state );
@@ -88,8 +90,8 @@ sub _opFinish {  # should have bailed before we got here
 # -------------------------
 sub _opData {
 	my $s = shift;
-	$s->{output} .= $s->{arg}[2];
-	return $s->{arg}[1];
+	$s->{output} .= $s->{arg}[3];
+	return $s->{arg}[2];
 }
 
 # -------------------------
@@ -97,23 +99,23 @@ sub _opVar {
 	my $s = shift;
 
 	my %options;
-	if ( scalar @{ $s->{arg} } > 3 ) { # we have some options...
-		my $c = 3;
+	if ( scalar @{ $s->{arg} } > 4 ) { # we have some options...
+		my $c = 4;
 		while ( $c < scalar @{ $s->{arg} } ) {
 			my $opt = $s->{arg}[$c++];
-			die "Bad var option '$opt'"
+			die "Bad var option '$opt'" . _linenum( $s, $s->{arg}[0] )
 			 if ( $opt > $#varmap );
 			$options{ $varmap[ $opt ]  } = 1;
 		}
 	}
 
 	my $global = ( exists $options{global} ) ? 1 : 0;
-	my $var = _get_var( $s, $s->{arg}[2], $global );
+	my $var = _get_var( $s, $s->{arg}[3], $global );
 	unless ( defined $var ) {
-		return $s->{arg}[1]
+		return $s->{arg}[2]
 		 if ( $s->{self}{CONFIG}{die_on_bad_params} == 0
 		 or exists $options{shrug} );
-		die "Error: var '$s->{arg}[2]' is undefined\n";
+		die "Error: undefined var '$s->{arg}[3]' " . _linenum( $s, $s->{arg}[0] )
 	}
 
 	# FIXME - is this ok?
@@ -127,7 +129,7 @@ sub _opVar {
 	}
 	$s->{output} .= $var;
 
-	return $s->{arg}[1];
+	return $s->{arg}[2];
 }
 
 # -------------------------
@@ -135,34 +137,34 @@ sub _opPrintf {
 	my $s = shift;
 
 	# FIXME is this correct
-	my $pattern = _get_var( $s, $s->{arg}[2], 0 );
+	my $pattern = _get_var( $s, $s->{arg}[3], 0 );
 
 	my @args;
 	my $global = 0;
-	for ( 3..$#{ $s->{arg} } ) {
+	for ( 4..$#{ $s->{arg} } ) {
 		m/^-global$/ and $global = 1 and next;
 		push @args, _get_var( $s, $s->{arg}[$_], $global );
 		$global = 0;
 	}
 
 	$s->{output} .= sprintf( $pattern, @args );
-	return $s->{arg}[1];
+	return $s->{arg}[2];
 }
 
 # -------------------------
 sub _opCall   {
 	my $s = shift;
 
-	my $callname = _get_var( $s, $s->{arg}[2] );
-	die "Unknown Call '$callname'"
+	my $callname = _get_var( $s, $s->{arg}[3] );
+	die "Unknown Call '$callname' " . _linenum( $s, $s->{arg}[0] )
 	 unless ( exists $s->{self}{_CALLS}{$callname} );
 
-	die "Call '$callname' is not a coderef\n"
+	die "Call '$callname' is not a coderef " . _linenum( $s, $s->{arg}[0] )
 	 unless ( $s->{self}{_CALLS}{$callname} =~ m/CODE/ );
 
 	my @args;
 	my $global = 0;
-	for ( 3..$#{ $s->{arg} } ) {
+	for ( 4..$#{ $s->{arg} } ) {
 		$s->{arg}[$_] =~ m/^-global$/ and $global = 1 and next;
 		push @args,
 		 ( $s->{arg}[$_] =~ m/^\$/ )?
@@ -171,14 +173,14 @@ sub _opCall   {
 	}
 
 	$s->{output} .= &{ $s->{self}{_CALLS}{$callname} }( @args );
-	return $s->{arg}[1];
+	return $s->{arg}[2];
 }
 
 # -------------------------
 sub _opStartblock {
 	my $s = shift;
 
-	my $blocktype = $s->{arg}[2];
+	my $blocktype = $s->{arg}[3];
 	return &{ $blockmap[$blocktype] }( $s );
 }
 
@@ -186,11 +188,11 @@ sub _opStartblock {
 sub _opEndblock {
 	my $s = shift;
 
-	my $op = $s->{arg}[2];
+	my $op = $s->{arg}[3];
 	if ( $op == BLOCK_ELSE ) {
-		return $s->{arg}[1];
+		return $s->{arg}[2];
 	}
-	return ( $s->{arg}[1], 1 );
+	return ( $s->{arg}[2], 1 );
 }
 
 # -------------------------
@@ -204,7 +206,7 @@ sub _blockIf {
 		$s->{output} .= $ret;
 		return $jump;
 	}
-	return $s->{arg}[1];
+	return $s->{arg}[2];
 }
 
 # -------------------------
@@ -217,22 +219,22 @@ sub _blockNotif {
 		$s->{output} .= $ret;
 		return $jump;
 	}
-	return $s->{arg}[1];
+	return $s->{arg}[2];
 }
 
 # -------------------------
 sub _blockElse {
 	my $s = shift;
-	return $s->{arg}[1];
+	return $s->{arg}[2];
 }
 
 # -------------------------
 sub _blockLoop {
 	my $s = shift;
 
-	my $global = ( $#{ $s->{arg} } > 3 and $s->{arg}[4] == GLOBAL_VAR ) ? 1 : 0;
-	my $list = _get_var( $s, $s->{arg}[3], $global );
-	die "'$list' is not an ARRAY ref"
+	my $global = ( $#{ $s->{arg} } > 4 and $s->{arg}[5] == GLOBAL_VAR ) ? 1 : 0;
+	my $list = _get_var( $s, $s->{arg}[4], $global );
+	die "'$list' is not an ARRAY ref " . _linenum( $s, $s->{arg}[0] )
 	 if ( not ref $list or ref $list ne 'ARRAY' );
 
 	my $count = 0;
@@ -261,16 +263,16 @@ sub _blockLoop {
 		$count++;
 	}
 
-	return $s->{arg}[1];
+	return $s->{arg}[2];
 }
 
 # -------------------------
 sub _blockMap {
 	my $s = shift;
 
-	my $global = ( $#{ $s->{arg} } > 3 and $s->{arg}[4] == GLOBAL_VAR ) ? 1 : 0;
-	my $var = _get_var( $s, $s->{arg}[3], $global );
-	die "$s->{arg}[3] = '$var' and is not an HASH ref nor a ARRAY ref"
+	my $global = ( $#{ $s->{arg} } > 4 and $s->{arg}[5] == GLOBAL_VAR ) ? 1 : 0;
+	my $var = _get_var( $s, $s->{arg}[4], $global );
+	die "$s->{arg}[4] = '$var' and is not an HASH ref nor a ARRAY ref " . _linenum( $s, $s->{arg}[0] )
 	 if ( not ref $var or ref $var !~ m/(HASH|ARRAY)/ );
 
 	my ( $ret, $jump )
@@ -285,13 +287,13 @@ sub _blockFormat {
 	my $s = shift;
 
 	require Compost::Template::Format;
-	my $format = $s->{arg}[3];
-	die "'$format' is not an known format"
+	my $format = $s->{arg}[4];
+	die "'$format' is not an known format " . _linenum( $s, $s->{arg}[0] )
 	 unless ( Compost::Template::Format->isKnown( $format ) );
 
 	my @args;
-	if ( scalar @{ $s->{arg} } > 3 ) {
-		@args = @{ $s->{arg} }[ 4 .. $#{ $s->{arg} } ];
+	if ( scalar @{ $s->{arg} } > 4 ) {
+		@args = @{ $s->{arg} }[ 5 .. $#{ $s->{arg} } ];
 	}
 
 	my ( $ret, $jump )
@@ -305,12 +307,12 @@ sub _blockFormat {
 sub _blockState {
 	my $s = shift;
 
-	my $key = $s->{arg}[3];
-	return $s->{arg}[1]
+	my $key = $s->{arg}[4];
+	return $s->{arg}[2]
 	 unless ( exists $s->{self}{CONFIG}{State}{$key} );
 
 	my $state = $s->{self}->{CONFIG}{State}{$key};
-	my $val   = $s->{arg}[4];
+	my $val   = $s->{arg}[5];
 	my $match = ( $val =~ s/^\!// ) ? 0 : 1;
 	my $test  = ( $state =~ m/^$val$/ ) ? 1 : 0;
 
@@ -319,7 +321,7 @@ sub _blockState {
 		 = $s->{self}->_process_commands( $s->{stack}, $s->{pa}, $s->{cursor} + 1 );
 		$s->{output} .= $ret;
 	}
-	return $s->{arg}[1];
+	return $s->{arg}[2];
 }
 
 # -------------------------
@@ -386,12 +388,24 @@ sub _testLte     {
 # helper subs
 
 # -------------------------
+sub _linenum {
+    my ( $s, $db ) = @_;
+
+    $db =~ m/^\[(\d+)\:(\d+)\]$/
+     or die "Bad debug info '$db'";
+
+    my $f = ( exists $s->{_INCLUDE_FILES} ) ?
+     $s->{_INCLUDE_FILES}[$1] : $s->{CONFIG}{filename};
+    return " at $f:$2\n"
+}
+
+# -------------------------
 sub _get_var {
 	my ( $s, $name, $global ) = @_;
 
 	# anon arrays
 	if ( $name eq '$_' ) {
-		die "Anon array item called, but not found"
+		die "Anon array item called, but not found " . _linenum( $s, $s->{arg}[0] )
 		 unless ( exists $s->{pa}{__anon__} );
 		return $s->{pa}{__anon__}
 	}
@@ -417,29 +431,29 @@ sub _get_var {
 	my @parts = split( /\./, $name );
 	shift @parts;  # we've already got the base
 	for my $p ( @parts ) {
-		die "Deep link is empty string in '\$$name'"
+		die "Deep link is empty string in '\$$name' " . _linenum( $s, $s->{arg}[0] )
 		 if ( $p eq '' );
 
 		if ( ref $tmpref ) {
 			my $type = ref $tmpref;
 			if ( $type =~ m/ARRAY/ ) {
-				die "Attempting to access an array with '$p'"
+				die "Attempting to access an array with '$p' " . _linenum( $s, $s->{arg}[0] )
 				 unless ( $p =~ m/^\d+$/ );
 
-				die "'$p' out of bounds in array '\$$name'"
+				die "'$p' out of bounds in array '\$$name' " . _linenum( $s, $s->{arg}[0] )
 				 unless ( $p < scalar @{ $tmpref } );
 
 				$tmpref = $tmpref->[$p];
 				next;
 			}
 			elsif ( $type =~ m/HASH/ ) {
-				die "Deep link '$p' in '\$$name' does not exist"
+				die "Deep link '$p' in '\$$name' does not exist " . _linenum( $s, $s->{arg}[0] )
 				 unless exists $tmpref->{$p};
 				$tmpref = $tmpref->{$p};
 				next;
 			}
 			else {
-				die "No handler for '$p' in $type '\$$name'"; 
+				die "No handler for '$p' in $type '\$$name' " . _linenum( $s, $s->{arg}[0] ); 
 			}
 		}
 		else {
@@ -456,7 +470,7 @@ sub _do_test {
 	my $s = shift;
 
 	my @args = @{ $s->{arg} };
-	splice( @args, 0, 3 );   # get rid of op, jump & block
+	splice( @args, 0, 4 );   # get rid of op, jump & block
 	my $test = shift @args;
 
 	return &{ $testmap[$test] }( $s, \@args );

@@ -2,7 +2,7 @@
 # `make test'. After `make install' it should work as `perl Compost-Template.t'
 
 #########################
-use lib '../lib/';
+use lib 'lib/';
 
 use Test::More tests => 61;
 BEGIN {
@@ -375,4 +375,7 @@ is( $reply, 'hmmm', 'or vars 3' );
 # check out perl6 formats
 # insert sql!!! 
 # prepend/append: stuff  at start of end of lines
+
+# clear the chache again
+unlink <./t/cache/*>;
 
