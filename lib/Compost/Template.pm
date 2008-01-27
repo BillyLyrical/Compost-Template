@@ -257,12 +257,12 @@ sub _read_cache {
 
 	my @stack;
 	my $c = 0;
+
 	for my $line ( split DELIMITER, $buffer ) {
 		$c++;
+		$line =~ m/^(.)/;
 
-		$line =~ m/^(\d+|\[)/
-		 or die "Bad line $c '$line' in cache '$file'";
-		if ( $1 eq OP_CONFIG ) {
+		if ( $1 eq '0' ) {  # OP_CONFIG = 0
 			my ( $op, $key, $val, $val2 ) = split ',', $line;
 			if ( $key eq 'cache' ) {
 				$self->{CONFIG}{cache} = $val;
@@ -283,7 +283,10 @@ sub _read_cache {
 				die "Unknown CONFIG key '$key' in cache '$file' line $c";
 			}
 		}
-		elsif ( $line =~ s/^(\[\d+:\d+\]),(OP_DATA),(\d+),// ) {
+        elsif ( $1 ne '[' ) {
+            die "Bad line $c '$line' in cache '$file'";
+        }
+		elsif ( $line =~ s/^(\[\d+:\d+\]),(1),(\d+),// ) {  # OP_DATA = 1
 			push @stack, [ $1, $2, $3, $line ];
 		}
 		else {
