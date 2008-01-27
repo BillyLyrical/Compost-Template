@@ -33,7 +33,6 @@ my %parsemap = (
 	FINISH     => \&_doFinish,
 );
 
-#my @opmap    = qw{ FINISH data var printf call startblock endblock   };
 my @opmap    = qw{ FINISH data var printf call startblock endblock   };
 my @blockmap = qw{ notif if else loop insert prefix map format state };
 
@@ -256,8 +255,6 @@ sub _doVar {
 	 unless ( $name =~ m/^\$\b\w/ );
 	my @param = ( $name );
 
-#print (exists $bs->{opt}{-global} )?  "Global" : "Local";
-#print $param[0] . "\n";
 	exists $bs->{opt}{-global} and push @param, GLOBAL_VAR;
 	exists $bs->{opt}{-html}   and push @param, ESCAPE_HTML;
 	exists $bs->{opt}{-url}    and push @param, ESCAPE_URL;
@@ -605,17 +602,6 @@ sub _get_test {
 		 . join( ' ', @{ $bs->{arg} } )
 		 . "' in '$bs->{chunk}' " . _debug( $bs );
 	}
-
-
-# FIXME
-#	# quoted vars ( or done in &_trim ? )
-#	my $qvar = '';
-#	if ( $bs->{chunk} =~ s/(=\s+)'(.*?)'$/$1/
-#	 or $bs->{chunk} =~ s/(=\s+)"(.*?)"$/$1/ ) {
-#		$qvar = $2;
-#	}
-#	push( @{ $bs->{arg} }, $qvar ) if $qvar;
-
 }
 
 # -------------------
@@ -627,8 +613,6 @@ sub _include {
 	}
     my $bs = { gs => $s, debug => $db };
 
-##	my $debug = $s->_debug( $db );
-##print "_include : $db\n";
 	defined $file
 	 or die "Undefined include file name, " . _debug( $bs );
 
@@ -692,9 +676,6 @@ sub _add_debug_data {
 # -------------------------
 sub _debug {
 	my ( $bs ) = @_;
-
-#my ( $p, $fi, $l ) = caller;
-#print "DEBUG($bs->{debug}) called by $l\n";
 
 	$bs->{debug} =~ m/^\[(\d+)\:(\d+)\]$/
 	 or die "Bad debug info '$bs->{debug}'";
