@@ -4,7 +4,8 @@ package Compost::Template::Parser;
 
 use strict;
 use warnings;
-#use diagnostics;
+use 5.014;
+use autodie;
 
 use Compost::Template;
 use Compost::Template::Misc;
@@ -42,19 +43,23 @@ sub _badCall {
 
 my $DEBUG = 0;
 
+# Compiled regexes for parsing
+my $RE_INCLUDE = qr/<%[+-]?\s+\[\d+\:\d+\]\s+include\s+\S+?\s+(-shrug\s+)?[+-]?%>/;
+my $RE_TAG_START = qr/^<%/;
+
 # -------------------------------------------------------------------
 # $data is a ref to a string
 sub _parse {
 	my ( $self, $data ) = @_;
 
 	my $depth = $self->{CONFIG}{max_depth};
-	while ( $$data =~ m/<%[+-]?\s+\[\d+\:\d+\]\s+include\s+\S+?\s+(-shrug\s+)?[+-]?%>/ ) {
+	while ( $$data =~ $RE_INCLUDE ) {
 
 		die "Illegal attempt to use Includes"
 		 if $self->{CONFIG}{no_includes};
 
 		die "Maximum recursion depth reached"
-		 if ( $depth-- == 0 ); 
+		 if ( $depth-- == 0 );
 
 		# the 'nop's are there to conserve whitespace swallowing
 		$$data =~ s{
@@ -97,13 +102,13 @@ sub _trim {
 	$$data =~ s{\s*<%\+\s*} { <% }g;
 }
 
-# useful parsing vars
-my $ST = '<%\s+(\[\d+\:\d+\])';  # start of tag + debug info
-my $ET = '\s*%>';                # end of tag
-my $OT = '\s*(\-\w+)\s*';        # -options
-my $DQ = '\"([^\"]*)\"';         # double quotes
-my $SQ = "\\'([^\\']*)\\'";      # single quotes
-my $VR = '(\$\w+)';              # variable
+# useful parsing vars - compiled
+my $ST = qr/<%\s+(\[\d+\:\d+\])/;      # start of tag + debug info
+my $ET = qr/\s*%>/;                      # end of tag
+my $OT = qr/\s*(\-\w+)\s*/;             # -options
+my $DQ = qr/\"([^\"]*)\"/;              # double quotes
+my $SQ = qr/\'([^\']*)\'/;              # single quotes
+my $VR = qr/(\$\w+)/;                   # variable
 
 # -------------------------
 sub _expand_syntactic_sugar {
@@ -116,16 +121,15 @@ sub _expand_syntactic_sugar {
 	$$data =~ s{$ST\s*\#.*?$ET} {}smgo;
 
 	# "or" in $var tags
-	# FIXME: parsing like this makes it hard to report syntactic errors
 	$$data =~ s{
 		$ST\s+                      # start of tag + debug info
 		($DQ|$SQ|$VR)               # some var or quoted thing
 		((\s+or\s+($DQ|$SQ|$VR))+)  # or more vars, quoted bits
 		(($OT)*)                    # -options
-		$ET                         # end of tag ";
+		$ET                         # end of tag
 	}{
-		my ( $buf, $d, $v1, $ors, $opts ) = ( '', $1, $2, $6, $12 || '' );
-		my $e = ( $opts eq '' )? '%>' : $opts . '%>'; 
+		my ( $buf, $d, $v1, $ors, $opts ) = ( '', $1, $2, $6, $12 // '' );
+		my $e = ( $opts eq '' )? '%>' : $opts . '%>';
 		$buf =  "<% $d if $v1 -shrug %><% $d $v1 $e"
 		 . _or_vars( $d, $ors, $opts );
 		$buf;
@@ -151,9 +155,9 @@ sub _or_vars {
 
 	$buf =~ s{^\s+or\s+($DQ|$SQ|$VR)}{}smo;
 	my $got = $1;
-	$op = '%>' if ( $got =~ m/^($DQ|$SQ)$/smo ); 
+	$op = '%>' if ( $got =~ m/^($DQ|$SQ)$/smo );
 
- 	if ( $buf eq '' ) { # end of the line, unroll recursion  
+	if ( $buf eq '' ) { # end of the line, unroll recursion
 		return "<% $d else %><% $d $got $op<% $d /if %>";
 	}
 	else {
@@ -173,7 +177,7 @@ sub _process_tokens {
 		arg    => [],  # args to tag
 		opt    => {},  # tag options
 		debug  => '',  # debug info ( filename, line number )
-        gs     => $gs, # pointer to global state
+		gs     => $gs, # pointer to global state
 	};
 
 	while ( scalar @{ $gs->{chunks} } ) {
@@ -183,16 +187,15 @@ sub _process_tokens {
 		$DEBUG and print "$bs->{chunk}\n";
 
 		# not a command, output as is
-		unless ( $bs->{chunk} =~ m/^<%/ ) {
+		unless ( $bs->{chunk} =~ $RE_TAG_START ) {
 			_push_stack( $gs, '[0:0]', OP_DATA, 'JUMP_NEXT', $bs->{chunk} );
 			next;
 		}
 
 		@{ $bs->{arg} } = grep { !/(^<%|%>|\-\w+$)/ } split /\s+/, $bs->{chunk};
-        $bs->{opt} = {};
+		$bs->{opt} = {};
 		map{ $bs->{opt}{$_} = 1 } grep { /^\-\w+$/ } split /\s+/, $bs->{chunk};
 
-		#$bs->{debug} = $gs->{self}->_debug( shift @{ $bs->{arg} } );
 		$bs->{debug} = shift @{ $bs->{arg} };
 		$bs->{chunk} =~ s/\[\d+\:\d+\]//;
 
@@ -245,8 +248,6 @@ sub _tidy_jump {
 
 # -------------------------
 # insert variable
-#    gs = global stack
-#    bs = block stack
 sub _doVar {
 	my ( $gs, $bs ) = @_;
 
@@ -393,7 +394,7 @@ sub _doSwitch {
 	my $newbs = _process_tokens( $gs );
 
 	my $prev = -1;
-	while ( $newbs->{tag} eq 'when' ) {                                 # FIXME move to test
+	while ( $newbs->{tag} eq 'when' ) {
 		if ( scalar @{ $newbs->{arg} } == 1 ) {
 			$newbs->{arg} = [ $name, '=', $newbs->{arg}[0] ];
 		}
@@ -449,12 +450,10 @@ sub _doPrintf {
 	  unless scalar @{ $bs->{arg} };
 
 	my $format = shift @{ $bs->{arg} };
-	# join quoted block - may need to be abstracted out and used widely
+	# join quoted block
 	if ( $format =~ m/^([\'\"])/ ) {
 		my $quote = $1;
 		if ( $format !~ m/$quote$/ ) {
-			# look thru' args till we find a matching quote closing
-			# FIXME - not the best solution
 			while (1) {
 				die "Unbalanced quoted printf format in '$bs->{chunk}' " . _debug( $bs )
 				 unless scalar @{ $bs->{arg} };
@@ -467,7 +466,6 @@ sub _doPrintf {
 		$format =~ s/^$quote//;
 		$format =~ s/$quote$//;
 	}
-	# FIXME - should printf formats always use quotes?
 
 	die "Bad printf format in'$format' " . _debug( $bs )
 	 unless ( $format =~ m/\%/ );
@@ -479,7 +477,7 @@ sub _doPrintf {
 sub _doIgnore {
 	my ( $gs, $bs ) = @_;
 
-	while ( $gs->{chunks}[0] !~ m/^<%\s+\[\d+\:\d+\]\s+\/ignore\s+%>$/ ) {	
+	while ( $gs->{chunks}[0] !~ m/^<%\s+\[\d+\:\d+\]\s+\/ignore\s+%>$/ ) {
 		shift @{ $gs->{chunks} };
 	}
 	shift @{ $gs->{chunks} };
@@ -494,7 +492,6 @@ sub _doFormat {
 
 	my $format = shift @{ $bs->{arg} };
 
-	# check format types
 	die "Bad format '$format' " . _debug( $bs )
 	 unless ( $format =~ m/^\w+$/ );
 
@@ -554,12 +551,12 @@ sub _get_test {
 		my $var = $bs->{arg}[0];
 
 		if ( $var =~ m/^(0|1)$/ ) {
-			return ( TEST_EQUALS, '1', $var );	
+			return ( TEST_EQUALS, '1', $var );
 		}
 
 		die "Unknown variable name '$var' in '$bs->{chunk}' " . _debug( $bs )
 		 unless ( $var =~ m/^\$\b\w+$/ );
-		return ( TEST_DEFINED, $var );	
+		return ( TEST_DEFINED, $var );
 	}
 
 	# simple comparison
@@ -587,7 +584,6 @@ sub _get_test {
 		}
 
 		if ( $var2 =~ m/^\"(.*?)\"$/ ) { # double quoted
-			# FIXME - interpolate vars?..
 			$var2 = $1;
 		}
 		if ( $var2 =~ m/^\'(.*?)\'$/ ) { # single quoted
@@ -611,7 +607,7 @@ sub _include {
 	unless ( defined $db ) { # it's the initial include
 		$db = '[0:0]';
 	}
-    my $bs = { gs => $s, debug => $db };
+	my $bs = { gs => $s, debug => $db };
 
 	defined $file
 	 or die "Undefined include file name, " . _debug( $bs );
@@ -637,21 +633,11 @@ sub _include {
 	$fname =~ s{//}{/}g;
 	push @{ $s->{_INCLUDE_FILES} }, $fname;
 
-	my $fh;
-	unless ( open( $fh, '<', $fname ) ) {
-		if ( $shrug == 1 ) {
-			$s->{_FILE_CACHE}{$file} = '';
-			return \'';
-		}
-
-		die "Unable to open include file '$fname' " . _debug( $bs ) . ":$!\n";
-	}
-
+	open( my $fh, '<', $fname );
 	sysread( $fh, my $buf, -s $fname )
 	 or die "Unable to sysread file '$fname' " . _debug( $bs ) . ":$!";
 	close $fh;
 
-	# FIXME - use refs more - esp in $s->{_FILE_CACHE}
 	$s->{_FILE_CACHE}{$file} = _add_debug_data( $buf, $#{ $s->{_INCLUDE_FILES} } );
 
 	return \$s->{_FILE_CACHE}{$file};
@@ -712,12 +698,10 @@ sub _dump {
 		push @buf, join ',', @$f;
 	}
 
-	open( my $fh, '>', Compost::Template::Misc::safe_file( $s->{CONFIG}{cache} ) )
-	 or die "Unable to open Template Cache '$s->{CONFIG}{cache}' for writing:$!";
+	my $cache_path = Compost::Template::Misc::safe_file( $s->{CONFIG}{cache} );
+	open( my $fh, '>', $cache_path );
 	print $fh join( DELIMITER, @buf );
 	close $fh;
 }
 
-# thankyouverymuchgoodnight
 1;
-

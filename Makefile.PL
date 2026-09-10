@@ -2,7 +2,7 @@
 
 use ExtUtils::MakeMaker;
 
-require 5.005;
+use 5.014;
 
 WriteMakefile(
   NAME            => 'Compost::Template',
@@ -11,8 +11,9 @@ WriteMakefile(
   AUTHOR          => 'Billy Lyrical <billy.lyrical@gmail.com>',
   MAN3PODS        => {},
   PREREQ_PM       => {
-    File::Spec => 0,
-    Test::More => 0,
+    'File::Spec'  => 0,
+    'Path::Tiny'  => 0,
+    'Moo'         => 0,
+    'Test::More'  => 0,
   },
 );
-

@@ -3,6 +3,10 @@ package Compost::Template::Format;
 # see Compost::Template.pod
 
 use strict;
+use warnings;
+use 5.014;
+use autodie;
+
 use Compost::Template::Misc;
 
 our $VERSION = '0.1.0';
@@ -18,7 +22,6 @@ my %formats = (
 	wordwrap   => \&_formatWordwrap,
 	text2html  => \&_formatText2html,
 	html       => \&_formatText2html,
-#	wiki       => \&_formatcwWiki,
 );
 
 sub isKnown {
@@ -29,7 +32,7 @@ sub isKnown {
 sub format {
 	my ( $class, $text, $name, @args ) = @_;
 
-	die "Unkown Format '$name'"
+	die "Unknown Format '$name'"
 	 unless ( exists $formats{$name} );
 
 	return &{ $formats{$name} }( $text, @args );
@@ -61,8 +64,7 @@ sub _formatLowercase {
 
 sub _formatTruncate {
 	my ( $text, $length ) = @_;
-	# FIXME - complain/die if $length not a number
-	$length ||= 0;
+	$length //= 0;
 	return substr( $text, 0, $length );
 }
 
@@ -76,9 +78,7 @@ sub _formatTrim {
 
 sub _formatWordwrap {
 	my ( $text, $width ) = @_;
-	# FIXME - complain/die if $width not a number
-	$width ||= 78;
-	# FIXME - should linebreaks be honoured?
+	$width //= 78;
 	$text =~ s/([^\n]{0,$width}[\.\,\;]?)\b\s*/$1\n/mg;
 	return $text;
 }
@@ -86,23 +86,21 @@ sub _formatWordwrap {
 sub _formatText2html {
 	my $text = shift;
 
-	$text = Compost::Template::Misc::htmlize( '', $text );
+	$text = Compost::Template::Misc::htmlize( $text );
 
-	# from perl cookbook - FIXME - can be improved heaps!!
 	my $buf;
 	for ( split /\n/, $text ) {
 		if (/^\s/) {
-			# Paragraphs beginning with whitespace are wrapped in <PRE> 
-			s{(.*)$}               {<pre>\n$1</pre>\n}s;       # indented verbatim
+			s{(.*)$}               {<pre>\n$1</pre>\n}s;
 		}
 		else {
-			s{^(>.*)}              {$1<br>}gm;                 # quoted text
-			s{<URL:(.*?)>}         {<a href="$1">$1</a>}gs     # embedded URL  (good)
+			s{^(>.*)}              {$1<br>}gm;
+			s{<URL:(.*?)>}         {<a href="$1">$1</a>}gs
 			 ||
-			s{((ftp|https?):/\S+)} {<a href="$1">$1</a>}gs;    # guessed URL   (bad)
-			s{\*(\S+)\*}           {<b>$1</b>}g;               # this is *bold* here
-			s{\b_(\S+)\_\b}        {<i>$1</i>}g;               # this is _italics_ here
-			s{^}                   {<p>\n};                    # add paragraph tag
+			s{((ftp|https?):/\S+)} {<a href="$1">$1</a>}gs;
+			s{\*(\S+)\*}           {<b>$1</b>}g;
+			s{\b_(\S+)\_\b}        {<i>$1</i>}g;
+			s{^}                   {<p>\n};
 		}
 		$buf .= $_;
 	}
@@ -110,12 +108,4 @@ sub _formatText2html {
 	return $buf;
 }
 
-#sub _formatWiki {
-#	my $text = shift;
-#	require Compost::Wiki;
-#	return Compost::Wiki::parse( $text );
-#}
-
-# thankyouverymuchgoodnight
 1;
-

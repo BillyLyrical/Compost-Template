@@ -6,6 +6,9 @@ package Compost::Template;
 
 use strict;
 use warnings;
+use 5.014;
+use autodie;
+
 use Compost::Template;
 use Compost::Template::Misc;
 
@@ -48,6 +51,16 @@ my @varmap   = qw{ global html url shrug };
 
 my $DEBUG = 0;
 
+# Compiled regexes
+my $RE_GLOBAL_OPT = qr/^-global$/;
+my $RE_VAR_PREFIX = qr/^\$/;
+my $RE_CODEREF    = qr/CODE/;
+my $RE_ARRAY_REF  = qr/ARRAY/;
+my $RE_HASH_ARRAY = qr/HASH|ARRAY/;
+my $RE_NUMERIC    = qr/^\d+$/;
+my $RE_NEGATE     = qr{^\!};
+my $RE_ANON_SCALAR = qr{^$};
+
 # -------------------------------------------------------------------
 sub _process_commands {
 	my ( $self, $stack, $pa, $cursor ) = @_;
@@ -58,7 +71,7 @@ sub _process_commands {
 		cursor => $cursor,
 		pa     => $pa,     # params
 		output => '',
-		global => {}, 
+		global => {},
 		arg    => [],
 	};
 	$state->{global} = $self->{_PARAMS};
@@ -66,23 +79,22 @@ sub _process_commands {
 	while ( 1 ) {
 		$state->{arg} = $state->{stack}[ $state->{cursor} ];
 
-		# debug...
 		$DEBUG and print "$state->{cursor}: " . join( ' ', @{ $state->{arg} } ) . "\n";
 
 		my $op = $state->{arg}[1];
 		return $state->{output} if $op == OP_FINISH;
-        $state->{_INCLUDE_FILES} = $self->{_INCLUDE_FILES};
-        $state->{CONFIG} = $self->{CONFIG};
+		$state->{_INCLUDE_FILES} = $self->{_INCLUDE_FILES};
+		$state->{CONFIG} = $self->{CONFIG};
 
 		# mode: normal, next, endblock, finish
 		my ( $jump, $mode ) = &{ $opmap[$op] }( $state );
-		( defined $mode and $mode == 1 ) and return ( $state->{output}, $jump );		
+		( defined $mode and $mode == 1 ) and return ( $state->{output}, $jump );
 		$state->{cursor} = $jump;
 	}
 }
 
 # -------------------------
-sub _opFinish {  # should have bailed before we got here
+sub _opFinish {
 	my $s = shift;
 	die "FINISH called";
 }
@@ -101,7 +113,7 @@ sub _opVar {
 	my $s = shift;
 
 	my %options;
-	if ( scalar @{ $s->{arg} } > 4 ) { # we have some options...
+	if ( scalar @{ $s->{arg} } > 4 ) {
 		my $c = 4;
 		while ( $c < scalar @{ $s->{arg} } ) {
 			my $opt = $s->{arg}[$c++];
@@ -120,14 +132,11 @@ sub _opVar {
 		die "Error: undefined var '$s->{arg}[3]' " . _linenum( $s, $s->{arg}[0] )
 	}
 
-	# FIXME - is this ok?
-#	if ( ref $var eq 'CODE' ) { $var = &{ $var } }
-
 	if ( exists $options{html} ) {
-		$var = Compost::Template::Misc::htmlize( '', $var );
+		$var = Compost::Template::Misc::htmlize( $var );
 	}
 	if ( exists $options{url} ) {
-		$var = Compost::Template::Misc::url_encode( '', $var );
+		$var = Compost::Template::Misc::url_encode( $var );
 	}
 	$s->{output} .= $var;
 
@@ -138,13 +147,12 @@ sub _opVar {
 sub _opPrintf {
 	my $s = shift;
 
-	# FIXME is this correct
 	my $pattern = _get_var( $s, $s->{arg}[3], 0 );
 
 	my @args;
 	my $global = 0;
 	for ( 4..$#{ $s->{arg} } ) {
-		m/^-global$/ and $global = 1 and next;
+		m/$RE_GLOBAL_OPT/ and $global = 1 and next;
 		push @args, _get_var( $s, $s->{arg}[$_], $global );
 		$global = 0;
 	}
@@ -154,7 +162,7 @@ sub _opPrintf {
 }
 
 # -------------------------
-sub _opCall   {
+sub _opCall {
 	my $s = shift;
 
 	my $callname = _get_var( $s, $s->{arg}[3] );
@@ -162,12 +170,12 @@ sub _opCall   {
 	 unless ( exists $s->{self}{_CALLS}{$callname} );
 
 	die "Call '$callname' is not a coderef " . _linenum( $s, $s->{arg}[0] )
-	 unless ( $s->{self}{_CALLS}{$callname} =~ m/CODE/ );
+	 unless ( ref $s->{self}{_CALLS}{$callname} eq 'CODE' );
 
 	my @args;
 	my $global = 0;
 	for ( 4..$#{ $s->{arg} } ) {
-		$s->{arg}[$_] =~ m/^-global$/ and $global = 1 and next;
+		$s->{arg}[$_] =~ $RE_GLOBAL_OPT and $global = 1 and next;
 		push @args,
 		 ( $s->{arg}[$_] =~ m/^\$/ )?
 		 _get_var( $s, $s->{arg}[$_], $global ) : $s->{arg}[$_] ;
@@ -252,11 +260,11 @@ sub _blockLoop {
 
 		# insert loop data tags
 		$item->{'__count__'} = $count + 1;
-		$item->{'__first__'} = ( $count == 0 )? 1 : 0;
-		$item->{'__last__'}  = ( $count == $top )? 1 : 0;
-		$item->{'__inner__'} = ( $count != 0 and $count != $top )? 1 : 0;
+		$item->{'__first__'} = ( $count == 0 ) ? 1 : 0;
+		$item->{'__last__'}  = ( $count == $top ) ? 1 : 0;
+		$item->{'__inner__'} = ( $count != 0 and $count != $top ) ? 1 : 0;
 		$item->{'__outer__'} = !$item->{'__inner__'};
-		$item->{'__even__'}  = ( $count % 2 )? 1 : 0;
+		$item->{'__even__'}  = ( $count % 2 ) ? 1 : 0;
 		$item->{'__odd__'}   = !$item->{'__even__'};
 
 		my ( $ret, $jump )
@@ -275,7 +283,7 @@ sub _blockMap {
 	my $global = ( $#{ $s->{arg} } > 4 and $s->{arg}[5] == GLOBAL_VAR ) ? 1 : 0;
 	my $var = _get_var( $s, $s->{arg}[4], $global );
 	die "$s->{arg}[4] = '$var' and is not an HASH ref nor a ARRAY ref " . _linenum( $s, $s->{arg}[0] )
-	 if ( not ref $var or ref $var !~ m/(HASH|ARRAY)/ );
+	 if ( not ref $var or ref $var !~ $RE_HASH_ARRAY );
 
 	my ( $ret, $jump )
 	 = $s->{self}->_process_commands( $s->{stack}, $var, $s->{cursor} + 1 );
@@ -327,13 +335,7 @@ sub _blockState {
 }
 
 # -------------------------
-# FIXME - TODO
-
-# sub _blockInsert {}
-# sub _blockPrefix {}
-
-# -------------------------
-sub _testNot     {
+sub _testNot {
 	my ( $s, $args ) = @_;
 	my $test = shift @{ $args };
 	return ( &{ $testmap[$test] }( $s, $args ) ) ? 0 : 1;
@@ -343,11 +345,11 @@ sub _testNot     {
 sub _testDefined {
 	my ( $s, $args ) = @_;
 	my $ret = _get_var( $s, $args->[0], 0 );
-	return ( $ret ) ? 1 : 0; # FIXME - is this enough?
+	return ( $ret ) ? 1 : 0;
 }
 
 # -------------------------
-sub _testEquals  {
+sub _testEquals {
 	my ( $s, $args ) = @_;
 
 	my $var1 = _get_var( $s, $args->[0], 0 );
@@ -357,35 +359,35 @@ sub _testEquals  {
 }
 
 # -------------------------
-sub _testGt      {
+sub _testGt {
 	my ( $s, $args ) = @_;
 	my $var1 = _get_var( $s, $args->[0], 0 );
 	my $var2 = _get_var( $s, $args->[1], 0 );
-	return ( $var1 gt $var2 ) ? 1 : 0;
+	return ( defined $var1 && defined $var2 && $var1 gt $var2 ) ? 1 : 0;
 }
 
 # -------------------------
-sub _testGte     {
+sub _testGte {
 	my ( $s, $args ) = @_;
 	my $var1 = _get_var( $s, $args->[0], 0 );
 	my $var2 = _get_var( $s, $args->[1], 0 );
-	return ( $var1 ge $var2 ) ? 1 : 0;
+	return ( defined $var1 && defined $var2 && $var1 ge $var2 ) ? 1 : 0;
 }
 
 # -------------------------
-sub _testLt      {
+sub _testLt {
 	my ( $s, $args ) = @_;
 	my $var1 = _get_var( $s, $args->[0], 0 );
 	my $var2 = _get_var( $s, $args->[1], 0 );
-	return ( $var1 lt $var2 ) ? 1 : 0;
+	return ( defined $var1 && defined $var2 && $var1 lt $var2 ) ? 1 : 0;
 }
 
 # -------------------------
-sub _testLte     {
+sub _testLte {
 	my ( $s, $args ) = @_;
 	my $var1 = _get_var( $s, $args->[0], 0 );
 	my $var2 = _get_var( $s, $args->[1], 0 );
-	return ( $var1 le $var2 ) ? 1 : 0;
+	return ( defined $var1 && defined $var2 && $var1 le $var2 ) ? 1 : 0;
 }
 
 # ====================================================
@@ -393,14 +395,14 @@ sub _testLte     {
 
 # -------------------------
 sub _linenum {
-    my ( $s, $db ) = @_;
+	my ( $s, $db ) = @_;
 
-    $db =~ m/^\[(\d+)\:(\d+)\]$/
-     or die "Bad debug info '$db'";
+	$db =~ m/^\[(\d+)\:(\d+)\]$/
+	 or die "Bad debug info '$db'";
 
-    my $f = ( exists $s->{_INCLUDE_FILES} ) ?
-     $s->{_INCLUDE_FILES}[$1] : $s->{CONFIG}{filename};
-    return " at $f:$2\n"
+	my $f = ( exists $s->{_INCLUDE_FILES} ) ?
+	 $s->{_INCLUDE_FILES}[$1] : $s->{CONFIG}{filename};
+	return " at $f:$2\n"
 }
 
 # -------------------------
@@ -440,9 +442,9 @@ sub _get_var {
 
 		if ( ref $tmpref ) {
 			my $type = ref $tmpref;
-			if ( $type =~ m/ARRAY/ ) {
+			if ( $type =~ $RE_ARRAY_REF ) {
 				die "Attempting to access an array with '$p' " . _linenum( $s, $s->{arg}[0] )
-				 unless ( $p =~ m/^\d+$/ );
+				 unless ( $p =~ $RE_NUMERIC );
 
 				die "'$p' out of bounds in array '\$$name' " . _linenum( $s, $s->{arg}[0] )
 				 unless ( $p < scalar @{ $tmpref } );
@@ -457,7 +459,7 @@ sub _get_var {
 				next;
 			}
 			else {
-				die "No handler for '$p' in $type '\$$name' " . _linenum( $s, $s->{arg}[0] ); 
+				die "No handler for '$p' in $type '\$$name' " . _linenum( $s, $s->{arg}[0] );
 			}
 		}
 		else {
@@ -469,7 +471,7 @@ sub _get_var {
 }
 
 # -------------------------
-# general conditonal testing
+# general conditional testing
 sub _do_test {
 	my $s = shift;
 
@@ -480,6 +482,4 @@ sub _do_test {
 	return &{ $testmap[$test] }( $s, \@args );
 }
 
-# thankyouverymuchgoodnight
 1;
-

@@ -4,9 +4,10 @@ package Compost::Template;
 
 use strict;
 use warnings;
-#use diagnostics;
+use 5.014;
+use autodie;
 
-use File::Spec;
+use Path::Tiny;
 use Compost::Template::Misc;
 
 our $VERSION = '0.1.0';
@@ -31,7 +32,7 @@ use constant {
 	BLOCK_MAP      => 6,
 	BLOCK_FORMAT   => 7,
 	BLOCK_STATE    => 8,
-  
+
 	TEST_NOT       => 0,
 	TEST_DEFINED   => 1,
 	TEST_EQUALS    => 2,
@@ -45,15 +46,18 @@ use constant {
 	ESCAPE_URL     => 2,
 	VAR_SHRUG      => 3,
 
-	DELIMITER      => "\0\n",  # FIXME: is this the best we can do?
+	DELIMITER      => "\0\n",
 };
+
+# Compiled regexes
+my $RE_CACHE_KEY  = qr/^(\w+)\.\w+$/;
+my $RE_INCLUDE_GUARD = qr/^#/;
 
 
 # -------------------
 sub new {
 	my ( $class, %opt ) = @_;
 
-	# a new template or a changed one
 	my $self = bless( { CONFIG => {
 		filename            => '',
 		max_depth           => 10,
@@ -73,25 +77,27 @@ sub new {
 	# set up the template paths
 	$self->{CONFIG}{path} = [];
 
-	push @{ $self->{CONFIG}{path} }, File::Spec->rel2abs( $ENV{COMPOST_TEMPLATE_ROOT} )
-	 if ( exists $ENV{COMPOST_TEMPLATE_ROOT} and defined $ENV{COMPOST_TEMPLATE_ROOT} );
+	if ( exists $ENV{COMPOST_TEMPLATE_ROOT} and defined $ENV{COMPOST_TEMPLATE_ROOT} ) {
+		push @{ $self->{CONFIG}{path} }, path( $ENV{COMPOST_TEMPLATE_ROOT} )->absolute->stringify;
+	}
 
 	if ( exists $opt{path} and defined $opt{path} ) {
 		push @{ $self->{CONFIG}{path} },
-		 map { s{\/*$}{/}; File::Spec->rel2abs( $_ ) }
+		 map { s{/*$}{/}; path( $_ )->absolute->stringify }
 		 ( ref $opt{path} eq 'ARRAY' ) ? @{ $opt{path} } : $opt{path};
 	}
 
-	push @{ $self->{CONFIG}{path} }, File::Spec->rel2abs(File::Spec->curdir())
-	 unless ( scalar @{ $self->{CONFIG}{path} } );
+	unless ( scalar @{ $self->{CONFIG}{path} } ) {
+		push @{ $self->{CONFIG}{path} }, path( '.' )->absolute->stringify;
+	}
 
 	# define cache location
 	if ( exists $opt{cache} ) {
-		$self->{CONFIG}{cache} = File::Spec->rel2abs( $opt{cache} );
-	} 
+		$self->{CONFIG}{cache} = path( $opt{cache} )->absolute->stringify;
+	}
 	elsif ( exists $opt{cache_dir} ) {
-		my $basename = ( defined $opt{filename} and $opt{filename} =~ m/(\w+)\.\w+$/ ) ? $1 : 'template';
-		$self->{CONFIG}{cache} = File::Spec->rel2abs( "$opt{cache_dir}/$basename.cache" );
+		my $basename = ( defined $opt{filename} and $opt{filename} =~ $RE_CACHE_KEY ) ? $1 : 'template';
+		$self->{CONFIG}{cache} = path( $opt{cache_dir}, "$basename.cache" )->absolute->stringify;
 	}
 
 	# use cache?
@@ -107,13 +113,13 @@ sub new {
 
 		my $mtime = ( stat( $s->{CONFIG}{cache} ) )[9];
 		for my $f ( @{ $s->{_INCLUDE_FILES} } ) {
-			if ( $f =~ s/^\#// ) {                  # previously missing include found
+			if ( $f =~ $RE_INCLUDE_GUARD ) {          # previously missing include found
 				$f = $s->_find_file( $f );
 				$f or next;
 				$usecache = 1;
 				last;
 			}
-			if ( ( stat( $f ) )[9] > $mtime ) {     # file has changed
+			if ( ( stat( $f ) )[9] > $mtime ) {       # file has changed
 				$usecache = 0;
 				last;
 			}
@@ -189,7 +195,7 @@ sub reply {
 
 # -------------------
 sub set_call {
- 	my ( $s, $name, $callback ) = @_;
+	my ( $s, $name, $callback ) = @_;
 
 	die "set_call '$name':'$callback' is not a code ref\n"
 	 unless ref $callback;
@@ -199,21 +205,21 @@ sub set_call {
 
 # -------------------
 sub delete_call {
- 	my ( $s, $name ) = @_;
+	my ( $s, $name ) = @_;
 	delete $s->{_CALLS}{$name};
 	return $s;
 }
 
 # -------------------
 sub set_state {
- 	my ( $s, $key, $val ) = @_;
+	my ( $s, $key, $val ) = @_;
 	$s->{CONFIG}{State}{$key} = $val;
 	return $s;
 }
 
 # -------------------
 sub get_state {
- 	my ( $s, $key ) = @_;
+	my ( $s, $key ) = @_;
 	return '' unless ( exists $s->{CONFIG}{State}{$key} );
 	return $s->{CONFIG}{State}{$key};
 }
@@ -226,7 +232,7 @@ sub match {
 	my $state = $s->{CONFIG}{State}{$key};
 
 	if ( $test !~ m/[\!\*\?]/ ) {
-		return ( $test eq $state ) ? 1 : 0;	
+		return ( $test eq $state ) ? 1 : 0;
 	}
 
 	my $match  = ( $test =~ s/^!// ) ? 0 : 1;
@@ -243,8 +249,7 @@ sub match {
 sub _read_cache {
 	my $file = shift;
 
-	open( my $fh, '<', $file )
-	 or die "Unable to open cache '$file' for reading:$!";
+	open( my $fh, '<', $file );
 	sysread( $fh, my $buffer, -s $file )
 	 or die "Unable to sysread '$file':$!";
 	close $fh;
@@ -283,9 +288,9 @@ sub _read_cache {
 				die "Unknown CONFIG key '$key' in cache '$file' line $c";
 			}
 		}
-        elsif ( $1 ne '[' ) {
-            die "Bad line $c '$line' in cache '$file'";
-        }
+		elsif ( $1 ne '[' ) {
+			die "Bad line $c '$line' in cache '$file'";
+		}
 		elsif ( $line =~ s/^(\[\d+:\d+\]),(1),(\d+),// ) {  # OP_DATA = 1
 			push @stack, [ $1, $2, $3, $line ];
 		}
@@ -313,13 +318,13 @@ sub _make_match {
 	);
 
 	# define regex atoms
-	my $one  = '\w+';          # ?
-	my $any  = "$one(\\.$one)*";    # *
+	my $one  = '\w+';
+	my $any  = "$one(\\.$one)*";
 
 	$test =~ s/\./'\.'/eg;
 	$test =~ s/\?/$one/g;
 	$test =~ s/\*/$any/g;
-	return $test; 
+	return qr/$test/;
 }
 
 # -------------------
@@ -327,7 +332,7 @@ sub _find_file {
 	my ( $s, $file ) = @_;
 
 	# is it an absolute path
-	if ( File::Spec->file_name_is_absolute( $file ) ) {
+	if ( path( $file )->is_absolute ) {
 		if ( $s->{CONFIG}{allow_absolute_path} == 0 ) {
 			die "Illegal attempt to read absolute path '$file'";
 		}
@@ -337,9 +342,9 @@ sub _find_file {
 
 	# is it in path
 	for my $path ( @{ $s->{CONFIG}{path} } ) {
-		my $filename = File::Spec->catfile( $path, $file );
+		my $filename = path( $path, $file )->stringify;
 
-		$filename = File::Spec->rel2abs( $filename )
+		$filename = path( $filename )->absolute->stringify
 		 if ( $s->{CONFIG}{allow_relative_path} == 1 );
 
 		$filename = Compost::Template::Misc::safe_file( $filename );
@@ -358,7 +363,7 @@ package Compost::Template::Factory;
 #
 # my $factory = Compost::Template::Factory->create( @options );
 # my $t = $factory->new( $filename );
-# 
+#
 sub create {
 	my $class = shift;
 	my $self  = { @_ };
@@ -370,6 +375,4 @@ sub new {
 	return Compost::Template->new( 'filename' => $filename, %{ $s } );
 }
 
-# thankyouverymuchgoodnight
 1;
-
