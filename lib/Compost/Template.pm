@@ -90,8 +90,8 @@ sub new {
 		$self->{CONFIG}{cache} = File::Spec->rel2abs( $opt{cache} );
 	} 
 	elsif ( exists $opt{cache_dir} ) {
-		$opt{filename} =~ m/(\w+)\.\w+$/;
-		$self->{CONFIG}{cache} = File::Spec->rel2abs( "$opt{cache_dir}/$1.cache" );
+		my $basename = ( defined $opt{filename} and $opt{filename} =~ m/(\w+)\.\w+$/ ) ? $1 : 'template';
+		$self->{CONFIG}{cache} = File::Spec->rel2abs( "$opt{cache_dir}/$basename.cache" );
 	}
 
 	# use cache?
@@ -250,7 +250,7 @@ sub _read_cache {
 	close $fh;
 
 	my $self = bless {
-		_PARMS      => {},
+		_PARAMS     => {},
 		CONFIG      => {},
 		CACHE_FILES => [],
 	}, 'Compost::Template';

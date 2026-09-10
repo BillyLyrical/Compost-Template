@@ -11,7 +11,7 @@ sub url_encode {
 #        my $self = shift;
         my ($s)=@_;
         return '' if (! defined ($s));
-        $s=~s/([^-_.a-zA-Z0-9])/"\%".unpack("H",$1).unpack("h",$1)/egs;
+        $s=~s/([^-_.a-zA-Z0-9])/"\%".unpack("H2",$1)/egs;
         $s;
 }
 
@@ -83,8 +83,7 @@ sub safe_file {
         }
 
         # Return the final path to the file
-        my $safe_file = File::Spec->catfile( File::Spec->rootdir(), $partial_path, $safe_filename 
-);
+        my $safe_file = File::Spec->catfile( File::Spec->rootdir(), $partial_path, $safe_filename );
 
         return $safe_file;
 }

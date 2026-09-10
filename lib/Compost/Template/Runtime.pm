@@ -352,8 +352,7 @@ sub _testEquals  {
 
 	my $var1 = _get_var( $s, $args->[0], 0 );
 	my $var2 = _get_var( $s, $args->[1], 0 );
-    $var1 ||= '';
-    $var2 ||= '';
+	return 0 if !defined $var1 || !defined $var2;
 	return ( $var1 eq $var2 ) ? 1 : 0;
 }
 
