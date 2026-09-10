@@ -963,7 +963,7 @@ Abstract out parsing more, i wanna add more -options.
 
 =head1 COPYRIGHT
 
-Copyright (c) 2007 banjo@actrix.co.nz.  All rights reserved.
+Copyright (c) 2007 Billy Lyrical <billy.lyrical@gmail.com>.  All rights reserved.
 
 This library is free software; you can redistribute it and/or modify it under the same
 terms as Perl itself.

@@ -1,4 +1,4 @@
-Compost-Template version 0.06
+Compost-Template version 0.1.0
 =============================
 
 Compost::Template is a perl templating module, originally based on
@@ -46,7 +46,7 @@ Test::More - but only for testing the build
 
 PROBLEMS/BUG REPORTS
 
-Please send any reports of problems or bugs to banjo@actrix.co.nz.
+Please send any reports of problems or bugs to billy.lyrical@gmail.com.
 
 If you know Test::More, and can be bothered making a Test case,
 email it to me, that'll help me find and fix the bug.
@@ -64,6 +64,6 @@ Perl Artistic License.
 
 See http://dev.perl.org/licenses/
 
-Copyright (C) 2007 by banjo@actrix.co.nz
+Copyright (C) 2007 by Billy Lyrical <billy.lyrical@gmail.com>
 
 

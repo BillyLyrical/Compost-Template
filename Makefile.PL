@@ -8,7 +8,7 @@ WriteMakefile(
   NAME            => 'Compost::Template',
   ABSTRACT_FROM   => 'lib/Compost/Template.pod',
   VERSION_FROM    => 'lib/Compost/Template.pm',
-  AUTHOR          => 'Billy Naylor <banjo@actrix.co.nz>',
+  AUTHOR          => 'Billy Lyrical <billy.lyrical@gmail.com>',
   MAN3PODS        => {},
   PREREQ_PM       => {
     File::Spec => 0,
