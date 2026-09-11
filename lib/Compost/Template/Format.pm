@@ -22,6 +22,7 @@ my %formats = (
 	wordwrap   => \&_formatWordwrap,
 	text2html  => \&_formatText2html,
 	html       => \&_formatText2html,
+	ucfirst    => \&_formatUcfirst,
 );
 
 sub isKnown {
@@ -60,6 +61,11 @@ sub _formatCapitalize {
 sub _formatLowercase {
 	my $text = shift;
 	return lc $text;
+}
+
+sub _formatUcfirst {
+	my $text = shift;
+	return ucfirst $text;
 }
 
 sub _formatTruncate {
