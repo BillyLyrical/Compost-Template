@@ -8,6 +8,29 @@ Templates are compiled to a simple bytecode format for fast interpretation.
 Useful for web templating, text generation, or any job that benefits from
 a clean template syntax.
 
+Overview
+--------
+
+Compost::Template is a pre-compiled bytecode template engine for Perl.
+Templates are compiled to a flat instruction array, cached to disk,
+and interpreted at runtime. The design prioritizes three things:
+
+  Speed    - compile once, run many; no parsing at runtime
+  Safety   - sandboxed execution; no arbitrary Perl in templates
+  Simplicity - minimal surface area; easy to audit and extend
+
+The engine has two phases:
+
+  Template Text → [Parser.pm] → Bytecode Array
+                                       ↓
+                                   [Cache] ← serialize to disk
+                                       ↓
+  Output String ← [Runtime.pm] ← Bytecode Array
+
+These phases are completely separated. A compiled template can be
+cached and reused across requests without re-parsing.
+
+
 Features
 --------
 
@@ -28,6 +51,7 @@ Features
  * Compiled bytecode cache for performance
  * Line-number error reporting
  * HTML and URL escaping
+
 
 Installation
 ------------
