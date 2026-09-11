@@ -1,0 +1,151 @@
+Compost::Template Runtime Engine - Analysis
+============================================
+
+Overview
+--------
+The runtime is a simple stack-based bytecode interpreter. The parser
+compiles templates into an array of instructions (stack entries), each
+being [debug_info, op, jump_target, ...args]. The runtime walks this
+stack linearly, dispatching ops via function pointer tables.
+
+Architecture
+------------
+Stack entries are flat arrays: [ $debug, $op, $jump, @payload ].
+$debug  - "[file_index:line_number]" string for error reporting
+$op     - opcode integer (OP_DATA=1, OP_VAR=2, etc.)
+$jump   - index of next instruction to execute
+@payload - op-specific data (variable names, block types, literals)
+
+Control flow is handled via $jump values. Blocks (if, loop, etc.) use
+OP_STARTBLOCK/OP_ENDBLOCK pairs. The block handler recursively calls
+_process_commands on the block body, collecting output. When the body
+finishes, the returned jump target skips past the matching ENDBLOCK.
+
+The $state hash is the runtime context, threaded through all calls:
+  self     - the Compost::Template object
+  stack    - the compiled bytecode array
+  cursor   - current instruction index
+  pa       - current parameter hash (changes inside loops)
+  output   - accumulated output string
+  global   - reference to $self->{_PARAMS}
+  arg      - current stack entry being executed
+
+What Works Well
+---------------
+1. Simplicity. The interpreter is ~580 lines and easy to follow.
+   There are no register files, no complex calling conventions.
+   Each op does one thing and returns a jump target.
+
+2. Recursive block processing. Blocks like if/loop/map call
+   _process_commands recursively, getting (output, jump) back.
+   This naturally handles nesting without an explicit call stack.
+
+3. Error reporting. Every error includes file:line via _linenum(),
+   using the debug info baked into each stack entry by the parser.
+
+4. Lazy loading. Format.pm is loaded via require only when a format
+   block is encountered. Same for Runtime.pm itself.
+
+Issues and Weaknesses
+---------------------
+
+1. Excessive string concatenation.
+   Output is built via $s->{output} .= $string in every op.
+   For large templates, this creates many intermediate strings.
+   A array-based output buffer with a final join would be faster.
+
+2. Recursive _process_commands for every block.
+   Each if/loop/map/random/format block spawns a new _process_commands
+   call with a fresh $state hash. For deeply nested or looped templates,
+   this means many hash allocations and function calls. A trampoline
+   or iterative approach could reduce overhead.
+
+3. Block handlers duplicate patterns.
+   _blockIf, _blockNotif, _blockLoop, _blockRandom, _blockMap,
+   _blockFormat, _blockState all follow the same pattern:
+     - extract args
+     - conditionally process body
+     - return jump
+   This could be refactored into a generic block dispatcher with
+   a callback for the condition/body logic.
+
+4. Code duplication in _blockLoop and _blockRandom.
+   Both do: get list, check ref, wrap scalars, set loop vars,
+   process body. The only difference is "all items" vs "one random
+   item". Could share a helper.
+
+5. _get_var does string surgery on every call.
+   It modifies $name via s/// to strip the $ prefix, then splits
+   on '.' for deep access. This regex work happens on every variable
+   lookup. Pre-parsing variable paths at compile time would be faster.
+
+6. Magic variable handling is ad-hoc.
+   $__line__ and $__file__ are handled via string comparison in
+   _get_var, which is the general variable lookup path. These
+   could be resolved at compile time or handled as a separate
+   fast path before _get_var is called.
+
+7. The $state hash is not reused.
+   Every _process_commands call creates a new $state. In a loop
+   with 1000 iterations, that's 1000 hash allocations. The hash
+   could be cleared and reused between iterations.
+
+8. Test functions are not short-circuited.
+   _testEquals, _testGt, etc. always call _get_var for both
+   operands even if the first is undefined. For '!=' or '!'
+   tests, this does unnecessary work.
+
+9. Dead code: _opFinish.
+   _opFinish is registered in @opmap but never called. The main
+   loop returns before dispatching to it. It could be removed,
+   or the early return could be moved into the function.
+
+10. Compiled regexes that could be constants.
+    $RE_GLOBAL_OPT, $RE_VAR_PREFIX, $RE_CODEREF, etc. are
+    declared as my $RE_X = qr/.../ which is fine, but some
+    (like $RE_ANON_SCALAR = qr{^$}) match empty strings and
+    seem unused or misnamed.
+
+Potential Refactors (Priority Order)
+-------------------------------------
+
+A. Output buffering. Replace $s->{output} .= with push to an
+   array, join at the end. Low risk, high impact for large output.
+
+B. Share loop setup code. Extract the "wrap scalar, set loop vars"
+   logic from _blockLoop and _blockRandom into a shared helper.
+
+C. Pre-compile variable paths. In the parser, resolve variable
+   names like $foo.bar.baz into a list of keys at compile time,
+   so _get_var doesn't need to split on every lookup.
+
+D. Reuse $state in loops. Instead of creating a new $state per
+   iteration, reset cursor/pa/output and reuse the hash.
+
+E. Remove dead code. _opFinish, $RE_ANON_SCALAR, and other
+   unused pieces.
+
+F. Simplify test dispatch. The test functions all follow the same
+   pattern of (get var1, get var2, compare). A single generic
+   comparison function with a type parameter would reduce code.
+
+G. Consider a C/XS fast path. The interpreter is pure Perl.
+   For performance-critical use cases, the inner loop of
+   _process_commands and _get_var could be compiled to C.
+
+Notes
+-----
+- The parser (Parser.pm) is a separate compilation unit that opens
+  into package Compost::Template. It shares constants with Runtime.pm
+  via 'use Compost::Template' and the "keep in sync" comments.
+  This coupling is fragile - a shared constants module would be cleaner.
+
+- The bytecode format is simple but not self-describing. The cache
+  files are binary blobs parsed by _read_cache. There's no versioning
+  beyond the filename key. Cache format changes require bumping the
+  cache key or adding a version header.
+
+- The engine has no concept of template inheritance, blocks, or
+  slots. These are common features in modern template engines
+  (Jinja2, Twig, Mason) that would require significant architectural
+  changes to add.
