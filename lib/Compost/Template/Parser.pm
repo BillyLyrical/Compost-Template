@@ -10,7 +10,7 @@ use autodie;
 use Compost::Template::Constants qw(:all);
 use Compost::Template::Misc;
 
-our $VERSION = '0.3.3';
+our $VERSION = '0.4.0';
 
 package Compost::Template;
 
@@ -32,6 +32,8 @@ my %parsemap = (
 	ignore     => \&_doIgnore,
 	random     => \&_doRandom,
 	dice       => \&_doDice,
+	extends    => \&_doExtends,
+	block      => \&_doBlock,
 	FINISH     => \&_doFinish,
 );
 
@@ -90,6 +92,31 @@ sub _parse {
 	};
 
 	_process_tokens( $global_state, -1 );
+
+	# Handle template inheritance
+	if ( exists $global_state->{_EXTENDS} ) {
+		my $parent_file = $global_state->{_EXTENDS};
+		my $child_blocks = $global_state->{_BLOCK_DEFS} // {};
+		my $child_bodies = $global_state->{_BLOCK_BODIES} // {};
+		
+		# Store child blocks in self for runtime access
+		$self->{_CHILD_BLOCKS} = $child_blocks;
+		$self->{_BLOCK_BODIES} = $child_bodies;
+		
+		# Parse parent template
+		my $parent_data = $self->_include( $parent_file );
+		my $parent_state = {
+			chunks => [ split /(<%\s.+?\s%>)/s, $$parent_data . '<% [0:0] FINISH %>' ],
+			self   => $self,
+			stack  => [],
+			ignore => 0,
+			block  => [],
+			_CHILD_BLOCKS => $child_blocks,
+		};
+		_process_tokens( $parent_state, -1 );
+		return $parent_state->{stack};
+	}
+
 	return $global_state->{stack};
 }
 
@@ -592,6 +619,85 @@ sub _doState {
 sub _doFinish {
 	my ( $gs, $bs ) = @_;
 	_push_stack( $gs, $bs->{debug}, OP_FINISH, -1 );
+}
+
+# -------------------------
+sub _doExtends {
+	my ( $gs, $bs ) = @_;
+
+	die "No parent template in '$bs->{chunk}' " . _debug( $bs )
+	 unless scalar @{ $bs->{arg} };
+
+	my $parent_file = shift @{ $bs->{arg} };
+	die "Bad parent template '$parent_file' " . _debug( $bs )
+	 unless ( $parent_file =~ m/^\S+$/ );
+
+	# Store extends info in global state for later use
+	$gs->{_EXTENDS} = $parent_file;
+}
+
+# -------------------------
+sub _doBlock {
+	my ( $gs, $bs ) = @_;
+
+	die "No block name in '$bs->{chunk}' " . _debug( $bs )
+	 unless scalar @{ $bs->{arg} };
+
+	my $name = shift @{ $bs->{arg} };
+	die "Bad block name '$name' " . _debug( $bs )
+	 unless ( $name =~ m/^\w+$/ );
+
+	# If _CHILD_BLOCKS is set, we're parsing the parent template.
+	# Emit OP_STARTBLOCK/OP_ENDBLOCK so runtime can invoke _blockBlock.
+	if ( exists $gs->{_CHILD_BLOCKS} ) {
+		my $start = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_END', BLOCK_BLOCK, $name );
+		my $newbs = _process_tokens( $gs );
+
+		die "Unclosed block, no closing tag for 'block' " . _debug( $bs )
+		 if ( $newbs == 0 );
+
+		die "Bad end to block '$newbs->{tag}' " . _debug( $bs )
+		 unless ( $newbs->{tag} eq '/block' );
+
+		my $end = _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_BLOCK );
+		_tidy_jump( $gs, $start, 'JUMP_END', $end + 1 );
+		return 0;
+	}
+
+	# Child template: record block body positions.
+	my $start = scalar @{ $gs->{stack} };
+	$gs->{_BLOCK_DEFS}{$name} = $start;
+
+	my $newbs = _process_tokens( $gs );
+
+	die "Unclosed block, no closing tag for 'block' " . _debug( $bs )
+	 if ( $newbs == 0 );
+
+	die "Bad end to block '$newbs->{tag}' " . _debug( $bs )
+	 unless ( $newbs->{tag} eq '/block' );
+
+	my $end = scalar @{ $gs->{stack} };
+	$gs->{_BLOCK_DEFS}{$name . '_end'} = $end;
+
+	# Immediately snapshot this block's bytecode (deep copy) so it
+	# survives the parent template overwriting the stack later.
+	my @body = map { [ @$_ ] } @{ $gs->{stack} }[ $start .. $end - 1 ];
+
+	# Re-base jump targets to the local body array and append FINISH.
+	my $finish_pos = scalar @body;
+	for my $entry ( @body ) {
+		my $j = $entry->[2];
+		if ( $j >= $end ) {
+			$entry->[2] = $finish_pos;
+		}
+		elsif ( $j >= $start ) {
+			$entry->[2] -= $start;
+		}
+	}
+	push @body, [ $bs->{debug}, OP_FINISH, -1 ];
+	$gs->{_BLOCK_BODIES}{$name} = \@body;
+
+	return 0;
 }
 
 # ===================================================================

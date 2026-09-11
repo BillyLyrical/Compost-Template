@@ -12,7 +12,7 @@ use autodie;
 use Compost::Template::Constants qw(:all);
 use Compost::Template::Misc;
 
-our $VERSION = '0.3.3';
+our $VERSION = '0.4.0';
 
 # keep in sync with Compost::Template::Parser
 my @opmap = (
@@ -23,6 +23,7 @@ my @opmap = (
 	\&_opCall,
 	\&_opStartblock,
 	\&_opEndblock,
+	undef,          # OP_EXTENDS - handled at parse time
 );
 
 my @blockmap = (
@@ -37,6 +38,7 @@ my @blockmap = (
 	\&_blockState,
 	\&_blockRandom,
 	\&_blockDice,
+	\&_blockBlock,
 );
 
 my @testmap = (
@@ -314,6 +316,30 @@ sub _blockDice {
 
 	push @{ $s->{output} }, $total;
 	return $s->{arg}[2];
+}
+
+# -------------------------
+sub _blockBlock {
+	my $s = shift;
+
+	my $name = $s->{arg}[4];
+
+	# Check if there's a child override for this block
+	if ( exists $s->{self}{_BLOCK_BODIES} and exists $s->{self}{_BLOCK_BODIES}{$name} ) {
+		my $child_body = $s->{self}{_BLOCK_BODIES}{$name};
+		my ( $ret, undef ) = $s->{self}->_process_commands(
+			$child_body, $s->{pa}, 0
+		);
+		push @{ $s->{output} }, $ret;
+		return $s->{arg}[2];
+	}
+
+	# No child override - execute parent's default block body
+	my ( $ret, $jump ) = $s->{self}->_process_commands(
+		$s->{stack}, $s->{pa}, $s->{cursor} + 1
+	);
+	push @{ $s->{output} }, $ret;
+	return $jump;
 }
 
 # -------------------------

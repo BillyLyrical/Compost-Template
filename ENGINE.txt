@@ -36,8 +36,9 @@ Each instruction is a flat array: [ $debug, $op, $jump, @payload ]
   $jump    - index of next instruction to execute
   @payload - op-specific data
 
-Opcode set:
+Opcode set (Constants.pm):
 
+  OP_CONFIG     (0)  - cache metadata (filename, includes, paths)
   OP_DATA       (1)  - output literal text
   OP_VAR        (2)  - resolve and output a variable
   OP_PRINTF     (3)  - sprintf-style formatted output
@@ -45,12 +46,22 @@ Opcode set:
   OP_STARTBLOCK (5)  - begin a block
   OP_ENDBLOCK   (6)  - end a block
   OP_FINISH     (7)  - stop execution
+  OP_EXTENDS    (8)  - declare parent template (parse-time only)
 
 Block types (payload of OP_STARTBLOCK):
 
-  BLOCK_IF, BLOCK_NOTIF, BLOCK_ELSE, BLOCK_LOOP, BLOCK_MAP,
-  BLOCK_FORMAT, BLOCK_STATE, BLOCK_RANDOM, BLOCK_DICE,
-  BLOCK_INSERT, BLOCK_PREFIX
+  BLOCK_IF       (1)  - conditional: if/elsif/else
+  BLOCK_NOTIF    (0)  - inverse conditional: unless
+  BLOCK_ELSE     (2)  - else clause
+  BLOCK_LOOP     (3)  - iterate over an array
+  BLOCK_MAP      (6)  - context switch into a hash/array ref
+  BLOCK_FORMAT   (7)  - apply a named text transformation
+  BLOCK_STATE    (8)  - regex-match against a state string
+  BLOCK_RANDOM   (9)  - pick a random item from a list
+  BLOCK_DICE     (10) - dice notation rolls (NdS+/-M or Nd[A/B/H/X/x/a])
+  BLOCK_BLOCK    (11) - overridable block for template inheritance
+  BLOCK_INSERT   (4)  - reserved (no runtime handler)
+  BLOCK_PREFIX   (5)  - reserved (no runtime handler)
 
 Control flow uses $jump values. Blocks use STARTBLOCK/ENDBLOCK pairs.
 The block handler recursively calls _process_commands on the body.
@@ -60,8 +71,8 @@ When the body finishes, the returned jump target skips past ENDBLOCK.
 
 Variable paths are pre-compiled at parse time. The parser splits
 "$foo.bar.baz" into ["foo", "bar", "baz"] and stores the parts
-in the bytecode. At runtime, _get_var walks the parts array without
-splitting or regex work.
+in the bytecode (Runtime.pm:510-548). At runtime, _get_var walks
+the parts array without splitting or regex work.
 
 Two namespaces:
   - pa:     current scope (changes inside loops)
@@ -70,23 +81,62 @@ Two namespaces:
 The -global flag forces resolution against the global namespace.
 Anonymous array items use $_ which resolves to pa->{__anon__}.
 
+### Magic Variables
+
+Available in any template context:
+
+  $_            - current item inside loop/random blocks
+  $__count__    - 1-based loop iteration counter
+  $__index__    - 0-based loop index
+  $__total__    - total items in loop list
+  $__first__    - true (1) if current item is the first
+  $__last__     - true (1) if current item is the last
+  $__inner__    - true (1) if not first and not last
+  $__outer__    - true (1) if first or last
+  $__even__     - true (1) if index is even
+  $__odd__      - true (1) if index is odd
+  $__line__     - current template line number (from debug info)
+  $__file__     - current template filename
+  $__time__     - current Unix epoch time
+  $__user__     - current system username ($ENV{USER})
+  $__version__  - engine version string
+
 ### Output Model
 
-Output is accumulated in an array and joined once at the end.
-Loops reuse the output buffer by passing $s->{output} as the
-5th argument to _process_commands, avoiding hash reallocation.
+Output is accumulated in an array and joined once at the end
+(Runtime.pm:63-91). Loops reuse the output buffer by passing
+$s->{output} as the 5th argument to _process_commands, avoiding
+hash reallocation. Nested blocks (if, unless, map, format, state)
+create a temporary output array, join it, and push the result
+to the parent's output.
 
 ### Caching
 
-Compiled templates are serialized to disk as text files with
-DELIMITER ("\0\n") between entries. The cache includes:
-  - Configuration (paths, flags, state)
-  - Include file list (for invalidation)
-  - Bytecode instructions
+Compiled templates are serialized to disk as DELIMITER-separated
+text files (DELIMITER = "\0\n"). Cache format:
+
+  Header:
+    V,<CACHE_VERSION>              - version marker (currently 2)
+    0,cache,<path>                 - OP_CONFIG: cache file path
+    0,filename,<name>              - OP_CONFIG: template filename
+    0,config,<key>,<value>         - OP_CONFIG: no_includes,
+                                     die_on_bad_params, remake,
+                                     max_depth, allow_absolute_path,
+                                     allow_relative_path
+    0,includes,<filepath>          - one per included file
+    0,path,<dir>                   - one per search path entry
+
+  Body:
+    <opcode>,<jump>,<operands...>  - one per instruction, joined
+                                     by DELIMITER
 
 Cache invalidation checks modification times of all included files.
 If any include has been modified, the cache is discarded and the
 template is recompiled.
+
+Version header (V,2) is checked on read. Mismatched versions
+trigger a recompile. This protects against format changes between
+engine versions.
 
 
 Design Principles
@@ -97,8 +147,11 @@ Design Principles
 The parser does the heavy lifting at compile time:
 - Variable paths split into key arrays
 - Syntactic sugar expanded (or-vars, interpolated strings)
-- Block structure validated
-- Format names checked against known formats
+- Block structure validated (including unclosed block detection)
+- Format names checked against known formats via Format->isKnown()
+- Dice expressions validated against regex
+- Printf format strings validated for % placeholders
+- Unknown tag names caught immediately
 
 At runtime, the interpreter is a tight while(1) loop. Variable
 lookups walk pre-compiled path arrays. There is no parsing,
@@ -124,112 +177,16 @@ This makes the engine easy to audit, extend, and debug.
 The tradeoff is that advanced features require more work to add.
 
 
-Completed Work
---------------
-
-The following items from the original ENGINE.txt analysis have
-been implemented:
-
-  A. Output buffering    - array-based with final join
-  B. Loop setup sharing  - _wrap_anon_item/_set_loop_vars extracted
-  C. Variable paths      - pre-compiled at parse time, stored in bytecode
-  D. Loop state reuse    - $output_ref avoids hash reallocation
-  E. Dead code removal   - _opFinish, unused regexes, dehtmlize()
-  F. Test dispatch       - single _testCompare with op parameter
-
-Additional work:
-  - Moo dependency removed (was listed but unused)
-  - reply() exit code fixed (exit 1 → exit 0)
-  - _doFormat passes arguments to Format.pm
-  - __index__, __total__ loop variables added
-  - 8 new format functions (ucfirst, lcfirst, reverse, repeat,
-    center, slugify, strip_tags, truncate_words)
-  - __line__, __file__ magic variables
-  - Letter dice (B/X/x/A/a)
-
-
 Future: Better
 --------------
 
 Developer experience and capabilities.
-
-### Cache Versioning
-
-Add a version header ("CTPL/2\n") to cache files. This enables:
-  - Graceful invalidation on format changes
-  - Forward-compatible cache loading
-  - Better error messages for corrupted caches
-
-Implementation: prepend version string, check on read, reject
-mismatched versions.
-
-### Compile-Time Validation
-
-Extend the parser to catch more errors at compile time:
-  - Unused variable warnings
-  - Unreachable code after FINISH
-  - Format name validation (currently runtime-only)
-  - Balanced block nesting checks
-
-### Template Inheritance
-
-Base template defines overridable blocks:
-
-  base.tmpl:
-    <html>
-    <head><% block title %>Default<% /block %></head>
-    <body><% block content %><% /block %></body>
-    </html>
-
-Child template extends and overrides:
-
-  child.tmpl:
-    <% extends base.tmpl %>
-    <% block title %>My Page<% /block %>
-    <% block content %><p>Hello</p><% /block %>
-
-Implementation approach:
-  1. Parser: compile child, record block definitions
-     (name → bytecode range)
-  2. Parser: compile base, leave block bodies as placeholders
-  3. Runtime: for each block in base, check if child has override.
-     If so, execute child's bytecode. Otherwise, execute default.
-
-Blocks are already isolated via STARTBLOCK/ENDBLOCK. Inheritance
-is just a mechanism for selecting which block body to execute.
-
-New opcode needed: OP_EXTENDS or BLOCK_EXTENDS block type.
-Block registry stored in compiled template metadata.
-
-### More Magic Variables
-
-  $__time__     - current timestamp (epoch or formatted)
-  $__user__     - current username (from environment)
-  $__version__  - engine version
-
-Trivial to add via the existing _get_var magic variable path.
 
 
 Future: Faster
 --------------
 
 Runtime performance optimizations.
-
-### Tighter Interpreter Loop
-
-Current _process_commands does per-instruction:
-  1. Fetch from stack
-  2. Check for OP_FINISH
-  3. Copy _INCLUDE_FILES and CONFIG to state
-  4. Dispatch via function pointer
-
-Optimizations:
-  - Make FINISH a normal op that returns a sentinel value
-  - Move _INCLUDE_FILES/CONFIG to self object (already there,
-    but copied to state on every instruction)
-  - Use goto &label for dispatch (Perl optimizes tail calls)
-
-Expected improvement: 10-20% for tight loops.
 
 ### Inline Caching
 
@@ -354,10 +311,13 @@ Notes
   from template execution. It's used for UI state management
   and could be extracted into a standalone module.
 
-- The engine has 85 tests covering all major features.
+- The engine has 91 tests covering all major features.
   Run with: perl t/Compost-Template.t
 
-- The Todo file contains additional feature ideas: chaining
-  with ;, dynamic namespaces ($x.$y.$z), relative namespaces
-  ($..var), and more. These are captured in the Future sections
-  above where they fit the design.
+- BLOCK_INSERT and BLOCK_PREFIX are defined in Constants but
+  have no runtime handlers. They are reserved for future use.
+
+- Template inheritance uses extends/block tags. The child template
+  is compiled first (recording block definitions), then the parent
+  is compiled. At runtime, _blockBlock checks for child overrides
+  and executes the appropriate block body.

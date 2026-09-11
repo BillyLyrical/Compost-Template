@@ -4,7 +4,7 @@
 #########################
 use lib 'lib/';
 
-use Test::More tests => 85;
+use Test::More tests => 91;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -528,6 +528,21 @@ is( $reply, '(template)', '__file__ returns (template) for inline' );
 # check out perl6 formats
 # insert sql!!! 
 # prepend/append: stuff  at start of end of lines
+
+# ------------------------------------------------
+# test template inheritance
+$template = $factory->new( 'child.tmpl' );
+$reply = $template->run();
+like( $reply, qr/<head>My Page Title<\/head>/, 'inheritance - child title override' );
+like( $reply, qr/Hello World/, 'inheritance - child content override' );
+like( $reply, qr/Main Navigation/, 'inheritance - parent content kept' );
+like( $reply, qr/Footer Content/, 'inheritance - parent footer kept' );
+
+# test inheritance with partial override (only title)
+$template = $factory->new( 'child_override_one.tmpl' );
+$reply = $template->run();
+like( $reply, qr/<head>Override Title Only<\/head>/, 'inheritance - partial override title' );
+unlike( $reply, qr/Default Title/, 'inheritance - partial override no default title' );
 
 # clear the chache again
 unlink <./t/cache/*>;

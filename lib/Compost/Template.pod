@@ -18,6 +18,9 @@ Compost::Template - Simple Templating
  <% include foo.tmpl %>         - include another template
  <% include bar.tmpl -shrug %>  - include, ignore failure
 
+ <% extends base.tmpl %>        - inherit from parent template
+ <% block name %> ... <% /block %> - define overridable block
+
  <% $var %>                     - insert variable
  <% $var1 or $var2 or 'oops' %> - "or" variables  
  <% $var -global %>             - insert global variable
@@ -209,6 +212,65 @@ Include tags can use a '-shrug' option, to keep going if
 an included file is not found, or can't be loaded...
 
  <% include obnoxious_advert.tmpl -shrug %>
+
+=item extends
+
+  <% extends base.tmpl %>
+
+The extends tag declares that this template inherits from a parent template.
+The parent template defines the overall structure, and the child template
+can override specific blocks.
+
+The extends tag must be the first tag in the child template (before any
+other content). It doesn't use end tags.
+
+Example parent (base.tmpl):
+
+  <html>
+  <head><% block title %>Default Title<% /block %></head>
+  <body>
+  <nav>Main Navigation</nav>
+  <% block content %><% /block %>
+  <footer>Footer</footer>
+  </body>
+  </html>
+
+Example child (child.tmpl):
+
+  <% extends base.tmpl %>
+  <% block title %>My Page<% /block %>
+  <% block content %><p>Hello World</p><% /block %>
+
+The child inherits all of the parent's structure and only needs to
+define the blocks it wants to override. Blocks not overridden use
+the parent's default content.
+
+=item block
+
+  <% block name %> ... <% /block %>
+
+The block tag defines an overridable section of a template. When used
+in a parent template, it provides a default body that child templates
+can override. When used in a child template (after extends), it
+replaces the parent's block with new content.
+
+Block names must be alphanumeric (no spaces or special characters).
+
+Example parent defining blocks:
+
+  <html>
+  <head><% block title %>Default Title<% /block %></head>
+  <body><% block content %><% /block %></body>
+  </html>
+
+Example child overriding blocks:
+
+  <% extends base.tmpl %>
+  <% block title %>My Page<% /block %>
+  <% block content %><p>Hello World</p><% /block %>
+
+Blocks can contain any valid template content including variables,
+conditionals, loops, and other blocks.
 
 =item Variables
 

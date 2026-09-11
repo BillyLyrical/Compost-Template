@@ -6,11 +6,11 @@ use 5.014;
 
 use Exporter 'import';
 
-our $VERSION = '0.3.3';
+our $VERSION = '0.4.0';
 
-my @op_names    = qw{ OP_CONFIG OP_DATA OP_VAR OP_PRINTF OP_CALL OP_STARTBLOCK OP_ENDBLOCK OP_FINISH };
+my @op_names    = qw{ OP_CONFIG OP_DATA OP_VAR OP_PRINTF OP_CALL OP_STARTBLOCK OP_ENDBLOCK OP_FINISH OP_EXTENDS };
 my @block_names = qw{ BLOCK_NOTIF BLOCK_IF BLOCK_ELSE BLOCK_LOOP BLOCK_INSERT BLOCK_PREFIX
-                      BLOCK_MAP BLOCK_FORMAT BLOCK_STATE BLOCK_RANDOM BLOCK_DICE };
+                      BLOCK_MAP BLOCK_FORMAT BLOCK_STATE BLOCK_RANDOM BLOCK_DICE BLOCK_BLOCK };
 my @test_names  = qw{ TEST_NOT TEST_DEFINED TEST_EQUALS TEST_GT TEST_GTE TEST_LT TEST_LTE };
 my @var_names   = qw{ GLOBAL_VAR ESCAPE_HTML ESCAPE_URL VAR_SHRUG };
 my @cache_names = qw{ CACHE_VERSION };
@@ -36,6 +36,7 @@ use constant {
 	OP_STARTBLOCK  => 5,
 	OP_ENDBLOCK    => 6,
 	OP_FINISH      => 7,
+	OP_EXTENDS     => 8,
 
 	BLOCK_NOTIF    => 0,
 	BLOCK_IF       => 1,
@@ -48,6 +49,7 @@ use constant {
 	BLOCK_STATE    => 8,
 	BLOCK_RANDOM   => 9,
 	BLOCK_DICE     => 10,
+	BLOCK_BLOCK    => 11,
 
 	TEST_NOT       => 0,
 	TEST_DEFINED   => 1,
