@@ -4,7 +4,7 @@
 #########################
 use lib 'lib/';
 
-use Test::More tests => 73;
+use Test::More tests => 74;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -269,6 +269,12 @@ $template = Compost::Template->new(
 );
 $reply = $template->param( test => 'hi' )->run();
 is( $reply, '    hi    ', 'format center' );
+
+$template = Compost::Template->new(
+    template => '<% format slugify %><% $test %><% /format %>',
+);
+$reply = $template->param( test => 'Hello World! How are you?' )->run();
+is( $reply, 'hello-world-how-are-you', 'format slugify' );
 
 # ------------------------------------------------
 # dynamic templates

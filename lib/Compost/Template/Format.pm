@@ -27,6 +27,7 @@ my %formats = (
 	reverse    => \&_formatReverse,
 	repeat     => \&_formatRepeat,
 	center     => \&_formatCenter,
+	slugify    => \&_formatSlugify,
 );
 
 sub isKnown {
@@ -95,6 +96,15 @@ sub _formatCenter {
 	return $text if $pad <= 0;
 	my $left = int( $pad / 2 );
 	return ' ' x $left . $text . ' ' x ( $pad - $left );
+}
+
+sub _formatSlugify {
+	my $text = shift;
+	$text = lc $text;
+	$text =~ s/[^\w\s-]//g;
+	$text =~ s/[\s_]+/-/g;
+	$text =~ s/^-+|-+$//g;
+	return $text;
 }
 
 sub _formatTruncate {
