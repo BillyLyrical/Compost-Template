@@ -14,6 +14,7 @@ Features
  * <% if %> / <% elsif %> / <% else %> / <% unless %>
  * <% loop $list %> with __count__, __first__, __last__, __inner__, __even__, __odd__
  * <% random $list %> picks a random item from a list
+ * <% dice 2d6+1 %> rolls dice (NdS+/-M notation)
  * <% switch %> / <% when %>
  * <% map $hash %> over hashes or arrays
  * <% printf "%08d" $var %> for padding and formatting

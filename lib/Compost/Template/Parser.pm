@@ -32,11 +32,12 @@ my %parsemap = (
 	state      => \&_doState,
 	ignore     => \&_doIgnore,
 	random     => \&_doRandom,
+	dice       => \&_doDice,
 	FINISH     => \&_doFinish,
 );
 
 my @opmap    = qw{ FINISH data var printf call startblock endblock   };
-my @blockmap = qw{ notif if else loop insert prefix map format state random };
+my @blockmap = qw{ notif if else loop insert prefix map format state random dice };
 
 sub _badCall {
 	die "BAD CALL from parsemap";
@@ -193,7 +194,7 @@ sub _process_tokens {
 			next;
 		}
 
-		@{ $bs->{arg} } = grep { !/(^<%|%>|\-\w+$)/ } split /\s+/, $bs->{chunk};
+		@{ $bs->{arg} } = grep { !/^<%$|^%>$|^-\w+$/ } split /\s+/, $bs->{chunk};
 		$bs->{opt} = {};
 		map{ $bs->{opt}{$_} = 1 } grep { /^\-\w+$/ } split /\s+/, $bs->{chunk};
 
@@ -375,6 +376,23 @@ sub _doRandom {
 	 unless ( $newbs->{tag} eq '/random' );
 
 	my $end   = _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_RANDOM );
+	_tidy_jump( $gs, $start, 'JUMP_END', $end + 1);
+}
+
+# -------------------------
+# dice notation: NdS+/-M
+sub _doDice {
+	my ( $gs, $bs ) = @_;
+
+	die "No dice expression in '$bs->{chunk}' " . _debug( $bs )
+	  unless scalar @{ $bs->{arg} };
+
+	my $expr = shift @{ $bs->{arg} };
+	die "Bad dice expression '$expr' in '$bs->{chunk}' " . _debug( $bs )
+	 unless ( $expr =~ m/^\d+d\d+([+-]\d+)?$/ );
+
+	my $start = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_END', BLOCK_DICE, $expr );
+	my $end   = _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_DICE );
 	_tidy_jump( $gs, $start, 'JUMP_END', $end + 1);
 }
 

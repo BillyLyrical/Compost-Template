@@ -4,7 +4,7 @@
 #########################
 use lib 'lib/';
 
-use Test::More tests => 63;
+use Test::More tests => 66;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -191,6 +191,26 @@ $template = Compost::Template->new(
 );
 $reply = $template->param( list => [qw{ alpha bravo charlie delta echo }] )->run();
 ok( $reply >= 0 && $reply <= 4, 'random index' );
+
+# ------------------------------------------------
+# test dice
+$template = Compost::Template->new(
+    template => '<% dice 1d6 %>',
+);
+$reply = $template->run();
+ok( $reply >= 1 && $reply <= 6, 'dice 1d6' );
+
+$template = Compost::Template->new(
+    template => '<% dice 2d6+1 %>',
+);
+$reply = $template->run();
+ok( $reply >= 3 && $reply <= 13, 'dice 2d6+1' );
+
+$template = Compost::Template->new(
+    template => '<% dice 3d8-2 %>',
+);
+$reply = $template->run();
+ok( $reply >= 1 && $reply <= 22, 'dice 3d8-2' );
 
 # ------------------------------------------------
 # test printf

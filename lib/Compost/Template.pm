@@ -33,6 +33,7 @@ use constant {
 	BLOCK_FORMAT   => 7,
 	BLOCK_STATE    => 8,
 	BLOCK_RANDOM   => 9,
+	BLOCK_DICE     => 10,
 
 	TEST_NOT       => 0,
 	TEST_DEFINED   => 1,

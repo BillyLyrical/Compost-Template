@@ -36,6 +36,7 @@ my @blockmap = (
 	\&_blockFormat,
 	\&_blockState,
 	\&_blockRandom,
+	\&_blockDice,
 );
 
 my @testmap = (
@@ -307,6 +308,24 @@ sub _blockRandom {
 	 = $s->{self}->_process_commands( $s->{stack}, $item, $s->{cursor} + 1 );
 	$s->{output} .= $ret;
 
+	return $s->{arg}[2];
+}
+
+# -------------------------
+sub _blockDice {
+	my $s = shift;
+
+	my $expr = $s->{arg}[4];
+	my ($count, $sides, $mod) = $expr =~ /^(\d+)d(\d+)([+-]\d+)?$/;
+	$mod //= 0;
+
+	my $total = 0;
+	for ( 1 .. $count ) {
+		$total += int( rand($sides) ) + 1;
+	}
+	$total += $mod;
+
+	$s->{output} .= $total;
 	return $s->{arg}[2];
 }
 
