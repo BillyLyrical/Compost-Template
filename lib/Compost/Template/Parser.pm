@@ -256,12 +256,19 @@ sub _doVar {
 	my $name = shift @{ $bs->{arg} };
 	die "Bad variable '$name' in $bs->{chunk} " . _debug( $bs )
 	 unless ( $name =~ m/^\$\b\w/ );
-	my @param = ( $name );
+
+	# pre-compile path parts for fast access at runtime
+	my $path = $name;
+	$path =~ s/^\$//;
+	my @parts = split( /\./, $path );
+
+	my @param = ( $name, scalar @parts, @parts );
 
 	exists $bs->{opt}{-global} and push @param, GLOBAL_VAR;
 	exists $bs->{opt}{-html}   and push @param, ESCAPE_HTML;
 	exists $bs->{opt}{-url}    and push @param, ESCAPE_URL;
 	exists $bs->{opt}{-shrug}  and push @param, VAR_SHRUG;
+
 	_push_stack( $gs, $bs->{debug}, OP_VAR, 'JUMP_NEXT', @param );
 
 	return 0;

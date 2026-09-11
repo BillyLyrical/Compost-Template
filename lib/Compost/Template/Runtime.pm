@@ -61,14 +61,15 @@ my $RE_NUMERIC    = qr/^\d+$/;
 
 # -------------------------------------------------------------------
 sub _process_commands {
-	my ( $self, $stack, $pa, $cursor ) = @_;
+	my ( $self, $stack, $pa, $cursor, $output_ref ) = @_;
 
+	my $output = defined $output_ref ? $output_ref : [];
 	my $state = {
 		self   => $self,
 		stack  => $stack,
 		cursor => $cursor,
 		pa     => $pa,     # params
-		output => [],
+		output => $output,
 		global => {},
 		arg    => [],
 	};
@@ -104,9 +105,14 @@ sub _opData {
 sub _opVar {
 	my $s = shift;
 
+	my $name = $s->{arg}[3];
+	my $path_count = $s->{arg}[4] // 0;
+	my @path_parts = $path_count ? @{ $s->{arg} }[ 5 .. 4 + $path_count ] : ();
+
 	my %options;
-	if ( scalar @{ $s->{arg} } > 4 ) {
-		my $c = 4;
+	my $opt_start = 5 + $path_count;
+	if ( scalar @{ $s->{arg} } > $opt_start ) {
+		my $c = $opt_start;
 		while ( $c < scalar @{ $s->{arg} } ) {
 			my $opt = $s->{arg}[$c++];
 			die "Bad var option '$opt'" . _linenum( $s, $s->{arg}[0] )
@@ -116,12 +122,12 @@ sub _opVar {
 	}
 
 	my $global = ( exists $options{global} ) ? 1 : 0;
-	my $var = _get_var( $s, $s->{arg}[3], $global );
+	my $var = _get_var( $s, $name, $global, \@path_parts );
 	unless ( defined $var ) {
 		return $s->{arg}[2]
 		 if ( $s->{self}{CONFIG}{die_on_bad_params} == 0
 		 or exists $options{shrug} );
-		die "Error: undefined var '$s->{arg}[3]' " . _linenum( $s, $s->{arg}[0] )
+		die "Error: undefined var '$name' " . _linenum( $s, $s->{arg}[0] )
 	}
 
 	if ( exists $options{html} ) {
@@ -242,9 +248,7 @@ sub _blockLoop {
 		$item = _wrap_anon_item( $item );
 		_set_loop_vars( $item, $count, $total );
 
-		my ( $ret, $jump )
-		 = $s->{self}->_process_commands( $s->{stack}, $item, $s->{cursor} + 1 );
-		push @{ $s->{output} }, $ret;
+		$s->{self}->_process_commands( $s->{stack}, $item, $s->{cursor} + 1, $s->{output} );
 		$count++;
 	}
 
@@ -264,9 +268,7 @@ sub _blockRandom {
 	my $item = _wrap_anon_item( $list->[$index] );
 	_set_loop_vars( $item, $index, scalar @$list );
 
-	my ( $ret, $jump )
-	 = $s->{self}->_process_commands( $s->{stack}, $item, $s->{cursor} + 1 );
-	push @{ $s->{output} }, $ret;
+	$s->{self}->_process_commands( $s->{stack}, $item, $s->{cursor} + 1, $s->{output} );
 
 	return $s->{arg}[2];
 }
@@ -466,7 +468,7 @@ sub _linenum {
 
 # -------------------------
 sub _get_var {
-	my ( $s, $name, $global ) = @_;
+	my ( $s, $name, $global, $path_parts ) = @_;
 
 	# anon arrays
 	if ( $name eq '$_' ) {
@@ -496,8 +498,50 @@ sub _get_var {
 
 	return $name
 	 unless ( $name =~ s/^\$\b(\w+)/$1/ );
-	my $basename = $1;
 
+	# use pre-compiled path parts if available
+	if ( defined $path_parts and @$path_parts ) {
+		my $basename = $path_parts->[0];
+		my $tmpref;
+		if ( $global == 0 ) {
+			if ( exists $s->{pa}{ $basename } ) {
+				$tmpref = $s->{pa}{ $basename };
+			}
+		}
+		else {
+			if ( exists $s->{global}{ $basename } ) {
+				$tmpref = $s->{global}{ $basename };
+			}
+		}
+
+		for my $i ( 1 .. $#$path_parts ) {
+			my $p = $path_parts->[$i];
+			die "Deep link is empty string in '\$$name' " . _linenum( $s, $s->{arg}[0] )
+			 if ( $p eq '' );
+
+			last unless ref $tmpref;
+			my $type = ref $tmpref;
+			if ( $type =~ $RE_ARRAY_REF ) {
+				die "Attempting to access an array with '$p' " . _linenum( $s, $s->{arg}[0] )
+				 unless ( $p =~ $RE_NUMERIC );
+				die "'$p' out of bounds in array '\$$name' " . _linenum( $s, $s->{arg}[0] )
+				 unless ( $p < scalar @{ $tmpref } );
+				$tmpref = $tmpref->[$p];
+			}
+			elsif ( $type =~ m/HASH/ ) {
+				die "Deep link '$p' in '\$$name' does not exist " . _linenum( $s, $s->{arg}[0] )
+				 unless exists $tmpref->{$p};
+				$tmpref = $tmpref->{$p};
+			}
+			else {
+				die "No handler for '$p' in $type '\$$name' " . _linenum( $s, $s->{arg}[0] );
+			}
+		}
+		return $tmpref;
+	}
+
+	# fallback: legacy path (no pre-compiled parts)
+	my $basename = $1;
 	my $tmpref;
 	if ( $global == 0 ) {
 		if ( exists $s->{pa}{ $basename } ) {
@@ -511,9 +555,8 @@ sub _get_var {
 	}
 	return $tmpref unless ( $name =~ m/\./ );
 
-	# handle complex names
 	my @parts = split( /\./, $name );
-	shift @parts;  # we've already got the base
+	shift @parts;
 	for my $p ( @parts ) {
 		die "Deep link is empty string in '\$$name' " . _linenum( $s, $s->{arg}[0] )
 		 if ( $p eq '' );
@@ -523,10 +566,8 @@ sub _get_var {
 			if ( $type =~ $RE_ARRAY_REF ) {
 				die "Attempting to access an array with '$p' " . _linenum( $s, $s->{arg}[0] )
 				 unless ( $p =~ $RE_NUMERIC );
-
 				die "'$p' out of bounds in array '\$$name' " . _linenum( $s, $s->{arg}[0] )
 				 unless ( $p < scalar @{ $tmpref } );
-
 				$tmpref = $tmpref->[$p];
 				next;
 			}
