@@ -4,7 +4,7 @@
 #########################
 use lib 'lib/';
 
-use Test::More tests => 75;
+use Test::More tests => 76;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -281,6 +281,12 @@ $template = Compost::Template->new(
 );
 $reply = $template->param( test => '<b>bold</b> and <i>italic</i>' )->run();
 is( $reply, 'bold and italic', 'format strip_tags' );
+
+$template = Compost::Template->new(
+    template => '<% format truncate_words 3 %><% $test %><% /format %>',
+);
+$reply = $template->param( test => 'the quick brown fox jumps' )->run();
+is( $reply, 'the quick brown', 'format truncate_words' );
 
 # ------------------------------------------------
 # dynamic templates

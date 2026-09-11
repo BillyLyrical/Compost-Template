@@ -29,6 +29,7 @@ my %formats = (
 	center     => \&_formatCenter,
 	slugify    => \&_formatSlugify,
 	strip_tags => \&_formatStripTags,
+	truncate_words => \&_formatTruncateWords,
 );
 
 sub isKnown {
@@ -111,6 +112,14 @@ sub _formatSlugify {
 sub _formatStripTags {
 	my $text = shift;
 	$text =~ s/<[^>]+>//g;
+	return $text;
+}
+
+sub _formatTruncateWords {
+	my ( $text, $count ) = @_;
+	$count //= 10;
+	my @words = split /\s+/, $text;
+	return join( ' ', @words[0 .. $count - 1] ) if scalar @words > $count;
 	return $text;
 }
 
