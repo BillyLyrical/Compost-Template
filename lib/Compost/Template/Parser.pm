@@ -31,11 +31,12 @@ my %parsemap = (
 	format     => \&_doFormat,
 	state      => \&_doState,
 	ignore     => \&_doIgnore,
+	random     => \&_doRandom,
 	FINISH     => \&_doFinish,
 );
 
 my @opmap    = qw{ FINISH data var printf call startblock endblock   };
-my @blockmap = qw{ notif if else loop insert prefix map format state };
+my @blockmap = qw{ notif if else loop insert prefix map format state random };
 
 sub _badCall {
 	die "BAD CALL from parsemap";
@@ -353,6 +354,28 @@ sub _doLoop {
 sub _doCounter {
 	my ( $gs, $bs ) = @_;
 	_push_stack( $gs, $bs->{debug}, OP_VAR, 'JUMP_NEXT', '$__count__' );
+}
+
+# -------------------------
+# random item from list
+sub _doRandom {
+	my ( $gs, $bs ) = @_;
+
+	die "No Token name in '$bs->{chunk}' " . _debug( $bs )
+	  unless scalar @{ $bs->{arg} };
+
+	my $name = shift @{ $bs->{arg} };
+	die "Bad variable name '$name' " . _debug( $bs )
+	 unless ( $name =~ m/^\$\b\w+/ );
+
+	my $start = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_END', BLOCK_RANDOM, $name );
+	my $newbs = _process_tokens( $gs );
+
+	die "Bad end to random block '$newbs->{tag}' " . _debug( $bs )
+	 unless ( $newbs->{tag} eq '/random' );
+
+	my $end   = _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_RANDOM );
+	_tidy_jump( $gs, $start, 'JUMP_END', $end + 1);
 }
 
 # -------------------------

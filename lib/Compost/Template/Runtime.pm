@@ -35,6 +35,7 @@ my @blockmap = (
 	\&_blockMap,
 	\&_blockFormat,
 	\&_blockState,
+	\&_blockRandom,
 );
 
 my @testmap = (
@@ -272,6 +273,39 @@ sub _blockLoop {
 		$s->{output} .= $ret;
 		$count++;
 	}
+
+	return $s->{arg}[2];
+}
+
+# -------------------------
+sub _blockRandom {
+	my $s = shift;
+
+	my $global = ( $#{ $s->{arg} } > 4 and $s->{arg}[5] == GLOBAL_VAR ) ? 1 : 0;
+	my $list = _get_var( $s, $s->{arg}[4], $global );
+	die "'$list' is not an ARRAY ref " . _linenum( $s, $s->{arg}[0] )
+	 if ( not ref $list or ref $list ne 'ARRAY' );
+
+	die "Empty list for random " . _linenum( $s, $s->{arg}[0] )
+	 unless @$list;
+
+	my $index = int( rand( scalar @$list ) );
+	my $item = $list->[$index];
+
+	# anon arrays
+	if ( ref $item eq '' ) {
+		$item = { __anon__ => $item };
+	}
+	elsif ( ref $item eq 'SCALAR' ) {
+		$item = { __anon__ => $$item };
+	}
+
+	$item->{'__count__'} = $index + 1;
+	$item->{'__index__'} = $index;
+
+	my ( $ret, $jump )
+	 = $s->{self}->_process_commands( $s->{stack}, $item, $s->{cursor} + 1 );
+	$s->{output} .= $ret;
 
 	return $s->{arg}[2];
 }

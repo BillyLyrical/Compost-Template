@@ -4,7 +4,7 @@
 #########################
 use lib 'lib/';
 
-use Test::More tests => 61;
+use Test::More tests => 63;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -177,6 +177,20 @@ $reply = $template->param(
 	]
 )->run();
 is( $reply, 'Map works OK',    'map deep' );
+
+# ------------------------------------------------
+# test random
+$template = Compost::Template->new(
+    template => '<% random $list %><% $_ %><% /random %>',
+);
+$reply = $template->param( list => [qw{ alpha bravo charlie delta echo }] )->run();
+ok( grep { $_ eq $reply } qw{ alpha bravo charlie delta echo }, 'random pick' );
+
+$template = Compost::Template->new(
+    template => '<% random $list %><% $__index__ %><% /random %>',
+);
+$reply = $template->param( list => [qw{ alpha bravo charlie delta echo }] )->run();
+ok( $reply >= 0 && $reply <= 4, 'random index' );
 
 # ------------------------------------------------
 # test printf
