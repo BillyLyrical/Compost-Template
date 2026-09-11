@@ -723,8 +723,14 @@ sub _debug {
 	$bs->{debug} =~ m/^\[(\d+)\:(\d+)\]$/
 	 or die "Bad debug info '$bs->{debug}'";
 
-	my $f = ( exists $bs->{gs}{_INCLUDE_FILES} ) ?
-	 $bs->{gs}{_INCLUDE_FILES}[$1] : $bs->{gs}{CONFIG}{filename};
+	my $f = '';
+	if ( exists $bs->{gs}{_INCLUDE_FILES} and defined $bs->{gs}{_INCLUDE_FILES}[$1] ) {
+		$f = $bs->{gs}{_INCLUDE_FILES}[$1];
+	}
+	elsif ( defined $bs->{gs}{CONFIG}{filename} and $bs->{gs}{CONFIG}{filename} ne '' ) {
+		$f = $bs->{gs}{CONFIG}{filename};
+	}
+	$f //= '(template)';
 
 	return "$f:$2";
 }
