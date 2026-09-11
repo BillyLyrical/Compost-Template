@@ -10,7 +10,7 @@ use autodie;
 use Compost::Template::Constants qw(:all);
 use Compost::Template::Misc;
 
-our $VERSION = '0.3.0';
+our $VERSION = '0.3.1';
 
 package Compost::Template;
 

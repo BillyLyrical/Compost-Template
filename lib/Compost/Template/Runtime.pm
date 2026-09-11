@@ -12,7 +12,7 @@ use autodie;
 use Compost::Template::Constants qw(:all);
 use Compost::Template::Misc;
 
-our $VERSION = '0.3.0';
+our $VERSION = '0.3.1';
 
 # keep in sync with Compost::Template::Parser
 my @opmap = (
@@ -82,8 +82,6 @@ sub _process_commands {
 
 		my $op = $state->{arg}[1];
 		return join( '', @{ $state->{output} } ) if $op == OP_FINISH;
-		$state->{_INCLUDE_FILES} = $self->{_INCLUDE_FILES};
-		$state->{CONFIG} = $self->{CONFIG};
 
 		# mode: normal, next, endblock, finish
 		my ( $jump, $mode ) = &{ $opmap[$op] }( $state );
@@ -461,8 +459,8 @@ sub _linenum {
 	$db =~ m/^\[(\d+)\:(\d+)\]$/
 	 or die "Bad debug info '$db'";
 
-	my $f = ( exists $s->{_INCLUDE_FILES} ) ?
-	 $s->{_INCLUDE_FILES}[$1] : $s->{CONFIG}{filename};
+	my $f = ( exists $s->{self}{_INCLUDE_FILES} ) ?
+	 $s->{self}{_INCLUDE_FILES}[$1] : $s->{self}{CONFIG}{filename};
 	return " at $f:$2\n"
 }
 
@@ -486,11 +484,11 @@ sub _get_var {
 		}
 		else {
 			my $f = '';
-			if ( exists $s->{_INCLUDE_FILES} and defined $s->{_INCLUDE_FILES}[$1] ) {
-				$f = $s->{_INCLUDE_FILES}[$1];
+			if ( exists $s->{self}{_INCLUDE_FILES} and defined $s->{self}{_INCLUDE_FILES}[$1] ) {
+				$f = $s->{self}{_INCLUDE_FILES}[$1];
 			}
-			elsif ( defined $s->{CONFIG}{filename} and $s->{CONFIG}{filename} ne '' ) {
-				$f = $s->{CONFIG}{filename};
+			elsif ( defined $s->{self}{CONFIG}{filename} and $s->{self}{CONFIG}{filename} ne '' ) {
+				$f = $s->{self}{CONFIG}{filename};
 			}
 			return $f || '(template)';
 		}
