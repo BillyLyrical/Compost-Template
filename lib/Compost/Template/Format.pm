@@ -24,6 +24,7 @@ my %formats = (
 	html       => \&_formatText2html,
 	ucfirst    => \&_formatUcfirst,
 	lcfirst    => \&_formatLcfirst,
+	reverse    => \&_formatReverse,
 );
 
 sub isKnown {
@@ -72,6 +73,11 @@ sub _formatUcfirst {
 sub _formatLcfirst {
 	my $text = shift;
 	return lcfirst $text;
+}
+
+sub _formatReverse {
+	my $text = shift;
+	return reverse $text;
 }
 
 sub _formatTruncate {
