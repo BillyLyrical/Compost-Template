@@ -10,7 +10,7 @@ use autodie;
 use Path::Tiny;
 use Compost::Template::Misc;
 
-our $VERSION = '0.1.0';
+our $VERSION = '0.1.1';
 
 use constant {
 
@@ -192,7 +192,7 @@ sub reply {
 	$s->param(@_);
 	print "Content-type: text/html\n\n";
 	print $s->run;
-	exit 1;
+	exit 0;
 }
 
 # -------------------

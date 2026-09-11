@@ -6,10 +6,6 @@ use ecsape & unescape from  CGI::Util;
 We already have multidimensional namespace
   <% $folk.1.contact.address.city %>
 
-add <% random $LIST %>
-
-add dice <% 2d6+1 %>
-
 add chaining by ';' <% $salutations ; $proposal ; $invoice ; $threat ; $signature %>
 
 add assignment

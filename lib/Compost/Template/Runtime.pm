@@ -12,7 +12,7 @@ use autodie;
 use Compost::Template;
 use Compost::Template::Misc;
 
-our $VERSION = '0.1.0';
+our $VERSION = '0.1.1';
 
 # keep in sync with Compost::Template::Parser
 my @opmap = (

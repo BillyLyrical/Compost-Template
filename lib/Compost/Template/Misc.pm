@@ -8,7 +8,7 @@ use autodie;
 use Path::Tiny;
 use File::Spec;
 
-our $VERSION = '0.1.0';
+our $VERSION = '0.1.1';
 
 # -----------------------------------------
 # utility subs
@@ -27,16 +27,6 @@ sub htmlize {
 	$s =~ s/>/&gt;/gs;
 	$s =~ s/</&lt;/gs;
 	$s =~ s/"/&quot;/gs;
-	return $s;
-}
-
-sub dehtmlize {
-	my ($s) = @_;
-	return '' if !defined $s;
-	$s =~ s/&gt;/>/gs;
-	$s =~ s/&lt;/</gs;
-	$s =~ s/&quot;/"/gs;
-	$s =~ s/&amp;/&/gs;
 	return $s;
 }
 
