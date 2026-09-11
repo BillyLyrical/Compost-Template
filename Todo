@@ -1,5 +1,14 @@
 Todo
 
+                                                                                              
+     Hard:                                                                                             
+     - Assignment ($foo = $val) — runtime needs a writeable variable namespace                         
+     - Dynamic namespace ($x.$y.$z) — parser + runtime                                                 
+     - Relative namespace ($..var) — parser + runtime                                                  
+     - Shims (Yaml, CSV, etc.) — major new feature                                                     
+                                                                                             
+
+
 use eval{} to test libs available.
 use ecsape & unescape from  CGI::Util;
 
@@ -7,6 +16,7 @@ We already have multidimensional namespace
   <% $folk.1.contact.address.city %>
 
 add chaining by ';' <% $salutations ; $proposal ; $invoice ; $threat ; $signature %>
+parser needs to split on ; and process multiple tags per <% %>
 
 add assignment
   <% $foo = $val %>
@@ -119,21 +129,6 @@ hmmmm
   <% $:var = { foo => $bar } %> creates a hashref
 yucky
 
-also, of course
-  <% random $list %> ... <% /random %>
-  <% 2d6-2 %> 0..10
-
-and random Hexadecimal
- uppercase <% 2dX %> 00..FF
- lowercase <% 2dx %> 00..ff
-
-how about random binary
-   <% 1d2-1 %> 0..1
-   <% 8dB %>  00000000...11111111
-
-ok howabout random letter of the alphabet
- uppercase <% 2dA %> AA..ZZ
- lowercase <% 2dx %> 00..ff
 
 
 
