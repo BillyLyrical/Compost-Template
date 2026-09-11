@@ -9,7 +9,7 @@ use autodie;
 
 use Compost::Template::Misc;
 
-our $VERSION = '0.1.1';
+our $VERSION = '0.1.3';
 
 my %formats = (
 	uppercase  => \&_formatUppercase,
