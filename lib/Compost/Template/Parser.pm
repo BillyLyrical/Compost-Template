@@ -10,7 +10,7 @@ use autodie;
 use Compost::Template::Constants qw(:all);
 use Compost::Template::Misc;
 
-our $VERSION = '0.3.2';
+our $VERSION = '0.3.3';
 
 package Compost::Template;
 
@@ -349,6 +349,9 @@ sub _doLoop {
 	my $start = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_END', BLOCK_LOOP, $name );
 	my $newbs = _process_tokens( $gs );
 
+	die "Unclosed block, no closing tag for 'loop' " . _debug( $bs )
+	 if ( $newbs == 0 );
+
 	die "Bad end to loop block '$newbs->{tag}' " . _debug( $bs )
 	 unless ( $newbs->{tag} eq '/loop' );
 
@@ -377,6 +380,9 @@ sub _doRandom {
 
 	my $start = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_END', BLOCK_RANDOM, $name );
 	my $newbs = _process_tokens( $gs );
+
+	die "Unclosed block, no closing tag for 'random' " . _debug( $bs )
+	 if ( $newbs == 0 );
 
 	die "Bad end to random block '$newbs->{tag}' " . _debug( $bs )
 	 unless ( $newbs->{tag} eq '/random' );
@@ -541,6 +547,10 @@ sub _doFormat {
 
 	die "Bad format '$format' " . _debug( $bs )
 	 unless ( $format =~ m/^\w+$/ );
+
+	require Compost::Template::Format;
+	die "'$format' is not a known format " . _debug( $bs )
+	 unless ( Compost::Template::Format->isKnown( $format ) );
 
 	my $start = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_END', BLOCK_FORMAT, $format, @{ $bs->{arg} } );
 	my $newbs = _process_tokens( $gs );
