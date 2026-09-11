@@ -10,7 +10,7 @@ use autodie;
 use Compost::Template::Constants qw(:all);
 use Compost::Template::Misc;
 
-our $VERSION = '0.4.0';
+our $VERSION = '0.5.0';
 
 package Compost::Template;
 
@@ -35,6 +35,7 @@ my %parsemap = (
 	extends    => \&_doExtends,
 	block      => \&_doBlock,
 	super      => \&_doSuper,
+	macro      => \&_doMacro,
 	FINISH     => \&_doFinish,
 );
 
@@ -94,6 +95,12 @@ sub _parse {
 
 	_process_tokens( $global_state, -1 );
 
+	# Store macros defined in this template
+	if ( exists $global_state->{_MACROS} ) {
+		$self->{_MACROS} //= {};
+		%{ $self->{_MACROS} } = ( %{ $self->{_MACROS} }, %{ $global_state->{_MACROS} } );
+	}
+
 	# Handle template inheritance
 	if ( exists $global_state->{_EXTENDS} ) {
 		my $parent_file = $global_state->{_EXTENDS};
@@ -119,6 +126,12 @@ sub _parse {
 		# Store parent block bodies for super support
 		if ( exists $parent_state->{_PARENT_BLOCK_BODIES} ) {
 			$self->{_PARENT_BLOCK_BODIES} = $parent_state->{_PARENT_BLOCK_BODIES};
+		}
+
+		# Merge macros from parent (parent macros available to child)
+		if ( exists $parent_state->{_MACROS} ) {
+			$self->{_MACROS} //= {};
+			%{ $self->{_MACROS} } = ( %{ $parent_state->{_MACROS} }, %{ $self->{_MACROS} } );
 		}
 
 		return $parent_state->{stack};
@@ -738,6 +751,70 @@ sub _doSuper {
 
 	# Emit OP_SUPER - runtime will execute parent's default block body
 	_push_stack( $gs, $bs->{debug}, OP_SUPER, 'JUMP_NEXT' );
+
+	return 0;
+}
+
+# -------------------------
+sub _doMacro {
+	my ( $gs, $bs ) = @_;
+
+	die "No macro name in '$bs->{chunk}' " . _debug( $bs )
+	 unless scalar @{ $bs->{arg} };
+
+	# Join args back together (parser splits on whitespace, breaking "name($a, $b)")
+	my $macro_def = join( ' ', @{ $bs->{arg} } );
+
+	# Parse: macro name($param1, $param2, ...)
+	my ( $name, $params_str ) = $macro_def =~ m/^(\w+)\((.*?)\)\s*$/;
+	die "Bad macro definition '$macro_def' " . _debug( $bs )
+	 unless defined $name;
+
+	# Parse parameter names
+	my @params;
+	if ( defined $params_str and $params_str ne '' ) {
+		@params = split /\s*,\s*/, $params_str;
+		for my $p ( @params ) {
+			die "Bad macro parameter '$p' " . _debug( $bs )
+			 unless $p =~ m/^\$\w+$/;
+			$p =~ s/^\$//;  # strip the $
+		}
+	}
+
+	# Process macro body
+	my $start = scalar @{ $gs->{stack} };
+	my $newbs = _process_tokens( $gs );
+
+	die "Unclosed macro, no closing tag for 'macro' " . _debug( $bs )
+	 if ( $newbs == 0 );
+
+	die "Bad end to macro '$newbs->{tag}' " . _debug( $bs )
+	 unless ( $newbs->{tag} eq '/macro' );
+
+	my $end = scalar @{ $gs->{stack} };
+
+	# Copy and rebase macro body (similar to block bodies)
+	my @body = map { [ @$_ ] } @{ $gs->{stack} }[ $start .. $end - 1 ];
+	my $finish_pos = scalar @body;
+	for my $entry ( @body ) {
+		my $j = $entry->[2];
+		if ( $j >= $end ) {
+			$entry->[2] = $finish_pos;
+		}
+		elsif ( $j >= $start ) {
+			$entry->[2] -= $start;
+		}
+	}
+	push @body, [ $bs->{debug}, OP_FINISH, -1 ];
+
+	# Remove body from main stack (macro definition is a no-op at runtime)
+	$#{ $gs->{stack} } = $start - 1;
+
+	# Store macro definition
+	$gs->{_MACROS}{$name} = {
+		params => \@params,
+		body   => \@body,
+	};
 
 	return 0;
 }

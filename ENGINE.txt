@@ -312,7 +312,7 @@ Notes
   from template execution. It's used for UI state management
   and could be extracted into a standalone module.
 
-- The engine has 95 tests covering all major features.
+- The engine has 100 tests covering all major features.
   Run with: perl t/Compost-Template.t
 
 - BLOCK_INSERT and BLOCK_PREFIX are defined in Constants but
@@ -323,3 +323,8 @@ Notes
   is compiled. At runtime, _blockBlock checks for child overrides
   and executes the appropriate block body. The super tag executes
   the parent's default block body inline within the child's block.
+
+- Macros are defined with <% macro name($params) %> and called with
+  <% call name $args %>. Macro bodies are compiled to bytecode and
+  stored in _MACROS. At runtime, _opCall checks for macros before
+  Perl callbacks. Parameters are bound to arguments in a local scope.

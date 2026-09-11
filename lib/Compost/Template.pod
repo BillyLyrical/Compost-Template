@@ -21,6 +21,8 @@ Compost::Template - Simple Templating
  <% extends base.tmpl %>        - inherit from parent template
  <% block name %> ... <% /block %> - define overridable block
  <% super %>                     - insert parent block content
+ <% macro name($params) %> ... <% /macro %> - define reusable macro
+ <% call name $args %>          - call a macro or registered function
 
  <% $var %>                     - insert variable
  <% $var1 or $var2 or 'oops' %> - "or" variables  
@@ -298,6 +300,39 @@ Result:
 Without super, the child would completely replace "Default Title".
 With super, the parent's content is preserved and the child can
 append or prepend additional content.
+
+=item macro
+
+  <% macro name($param1, $param2) %> ... <% /macro %>
+
+The macro tag defines a reusable template fragment with parameters.
+Macros are invoked with the call tag.
+
+Example:
+
+  <% macro greet($name) %>
+    Hello, <% $name %>!
+  <% /macro %>
+
+  <% call greet "World" %>    → Hello, World!
+  <% call greet "Alice" %>    → Hello, Alice!
+
+Parameters are referenced as $name inside the macro body.
+Arguments can be string literals ("World") or variables ($who).
+
+Multiple parameters:
+
+  <% macro user_card($name, $email) %>
+    <div class="card">
+      <h3><% $name %></h3>
+      <p><% $email %></p>
+    </div>
+  <% /macro %>
+
+  <% call user_card "Sam" "sam@example.com" %>
+
+Macros can be defined in included files for reuse across templates
+(macro libraries).
 
 =item Variables
 

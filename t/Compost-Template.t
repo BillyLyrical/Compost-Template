@@ -4,7 +4,7 @@
 #########################
 use lib 'lib/';
 
-use Test::More tests => 95;
+use Test::More tests => 99;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -551,6 +551,32 @@ like( $reply, qr/<head>Default Title - My Site<\/head>/, 'inheritance - block su
 like( $reply, qr/<nav>Main Navigation<\/nav>/, 'inheritance - block super keeps parent content' );
 like( $reply, qr/<p>Additional content from child<\/p>/, 'inheritance - block super adds child content' );
 like( $reply, qr/Footer Content/, 'inheritance - block super keeps parent footer' );
+
+# ------------------------------------------------
+# test macros
+$template = Compost::Template->new(
+    template => '<% macro greet($name) %>Hello, <% $name %>!<% /macro %><% call greet "World" %>',
+);
+$reply = $template->run();
+is( $reply, 'Hello, World!', 'macro - basic call' );
+
+$template = Compost::Template->new(
+    template => '<% macro user_card($name, $email) %><% $name %> - <% $email %><% /macro %><% call user_card "Sam" "sam@example.com" %>',
+);
+$reply = $template->run();
+is( $reply, 'Sam - sam@example.com', 'macro - multiple params' );
+
+$template = Compost::Template->new(
+    template => '<% macro greet($name) %>Hi, <% $name %>!<% /macro %><% call greet $who %>',
+);
+$reply = $template->param(who => 'Alice')->run();
+is( $reply, 'Hi, Alice!', 'macro - variable argument' );
+
+$template = Compost::Template->new(
+    template => '<% macro item($x) %>[<% $x %>]<% /macro %><% call item "A" %><% call item "B" %>',
+);
+$reply = $template->run();
+is( $reply, '[A][B]', 'macro - multiple calls' );
 
 # clear the chache again
 unlink <./t/cache/*>;

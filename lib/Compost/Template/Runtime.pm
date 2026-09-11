@@ -12,7 +12,7 @@ use autodie;
 use Compost::Template::Constants qw(:all);
 use Compost::Template::Misc;
 
-our $VERSION = '0.4.0';
+our $VERSION = '0.5.0';
 
 # keep in sync with Compost::Template::Parser
 # Index = opcode value (see Constants.pm)
@@ -167,6 +167,44 @@ sub _opCall {
 	my $s = shift;
 
 	my $callname = _get_var( $s, $s->{arg}[3] );
+
+	# Check if it's a template macro first
+	if ( exists $s->{self}{_MACROS} and exists $s->{self}{_MACROS}{$callname} ) {
+		my $macro = $s->{self}{_MACROS}{$callname};
+		my @params = @{ $macro->{params} };
+		my $body = $macro->{body};
+
+		# Build macro scope with parameters bound to arguments
+		my %macro_scope;
+		my $global = 0;
+		my $arg_idx = 0;
+		for ( 4..$#{ $s->{arg} } ) {
+			$s->{arg}[$_] =~ $RE_GLOBAL_OPT and $global = 1 and next;
+			my $raw = $s->{arg}[$_];
+			my $val;
+			if ( $raw =~ m/^\$/ ) {
+				$val = _get_var( $s, $raw, $global );
+			}
+			else {
+				# Strip quotes from string literals
+				( $val = $raw ) =~ s/^['"]|['"]$//g;
+			}
+			if ( $arg_idx < scalar @params ) {
+				$macro_scope{ $params[$arg_idx] } = $val;
+			}
+			$arg_idx++;
+			$global = 0;
+		}
+
+		# Execute macro body
+		my ( $ret, undef ) = $s->{self}->_process_commands(
+			$body, \%macro_scope, 0
+		);
+		push @{ $s->{output} }, $ret;
+		return $s->{arg}[2];
+	}
+
+	# Fall back to registered Perl call
 	die "Unknown Call '$callname' " . _linenum( $s, $s->{arg}[0] )
 	 unless ( exists $s->{self}{_CALLS}{$callname} );
 
@@ -179,7 +217,7 @@ sub _opCall {
 		$s->{arg}[$_] =~ $RE_GLOBAL_OPT and $global = 1 and next;
 		push @args,
 		 ( $s->{arg}[$_] =~ m/^\$/ )?
-		 _get_var( $s, $s->{arg}[$_], $global ) : $s->{arg}[$_] ;
+		 _get_var( $s, $s->{arg}[$_], $global ) : $s->{arg}[$_];
 		$global = 0;
 	}
 
