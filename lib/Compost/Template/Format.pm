@@ -26,6 +26,7 @@ my %formats = (
 	lcfirst    => \&_formatLcfirst,
 	reverse    => \&_formatReverse,
 	repeat     => \&_formatRepeat,
+	center     => \&_formatCenter,
 );
 
 sub isKnown {
@@ -85,6 +86,15 @@ sub _formatRepeat {
 	my ( $text, $count ) = @_;
 	$count //= 1;
 	return $text x $count;
+}
+
+sub _formatCenter {
+	my ( $text, $width ) = @_;
+	$width //= 72;
+	my $pad = $width - length($text);
+	return $text if $pad <= 0;
+	my $left = int( $pad / 2 );
+	return ' ' x $left . $text . ' ' x ( $pad - $left );
 }
 
 sub _formatTruncate {
