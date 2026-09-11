@@ -72,7 +72,7 @@ sub _process_commands {
 		stack  => $stack,
 		cursor => $cursor,
 		pa     => $pa,     # params
-		output => '',
+		output => [],
 		global => {},
 		arg    => [],
 	};
@@ -84,13 +84,13 @@ sub _process_commands {
 		$DEBUG and print "$state->{cursor}: " . join( ' ', @{ $state->{arg} } ) . "\n";
 
 		my $op = $state->{arg}[1];
-		return $state->{output} if $op == OP_FINISH;
+		return join( '', @{ $state->{output} } ) if $op == OP_FINISH;
 		$state->{_INCLUDE_FILES} = $self->{_INCLUDE_FILES};
 		$state->{CONFIG} = $self->{CONFIG};
 
 		# mode: normal, next, endblock, finish
 		my ( $jump, $mode ) = &{ $opmap[$op] }( $state );
-		( defined $mode and $mode == 1 ) and return ( $state->{output}, $jump );
+		( defined $mode and $mode == 1 ) and return ( join( '', @{ $state->{output} } ), $jump );
 		$state->{cursor} = $jump;
 	}
 }
@@ -106,7 +106,7 @@ sub _opData {
 	my $s = shift;
 
 	defined $s->{arg}[3]
-     and $s->{output} .= $s->{arg}[3];
+     and push @{ $s->{output} }, $s->{arg}[3];
 	return $s->{arg}[2];
 }
 
@@ -140,7 +140,7 @@ sub _opVar {
 	if ( exists $options{url} ) {
 		$var = Compost::Template::Misc::url_encode( $var );
 	}
-	$s->{output} .= $var;
+	push @{ $s->{output} }, $var;
 
 	return $s->{arg}[2];
 }
@@ -159,7 +159,7 @@ sub _opPrintf {
 		$global = 0;
 	}
 
-	$s->{output} .= sprintf( $pattern, @args );
+	push @{ $s->{output} }, sprintf( $pattern, @args );
 	return $s->{arg}[2];
 }
 
@@ -184,7 +184,7 @@ sub _opCall {
 		$global = 0;
 	}
 
-	$s->{output} .= &{ $s->{self}{_CALLS}{$callname} }( @args );
+	push @{ $s->{output} }, &{ $s->{self}{_CALLS}{$callname} }( @args );
 	return $s->{arg}[2];
 }
 
@@ -215,7 +215,7 @@ sub _blockIf {
 		my ( $ret, $jump ) = $s->{self}->_process_commands(
 			$s->{stack}, $s->{pa}, $s->{cursor} + 1
 		);
-		$s->{output} .= $ret;
+		push @{ $s->{output} }, $ret;
 		return $jump;
 	}
 	return $s->{arg}[2];
@@ -228,7 +228,7 @@ sub _blockNotif {
 	unless ( _do_test( $s ) ) {
 		my ( $ret, $jump )
 		 = $s->{self}->_process_commands( $s->{stack}, $s->{pa}, $s->{cursor} + 1 );
-		$s->{output} .= $ret;
+		push @{ $s->{output} }, $ret;
 		return $jump;
 	}
 	return $s->{arg}[2];
@@ -273,7 +273,7 @@ sub _blockLoop {
 
 		my ( $ret, $jump )
 		 = $s->{self}->_process_commands( $s->{stack}, $item, $s->{cursor} + 1 );
-		$s->{output} .= $ret;
+		push @{ $s->{output} }, $ret;
 		$count++;
 	}
 
@@ -308,7 +308,7 @@ sub _blockRandom {
 
 	my ( $ret, $jump )
 	 = $s->{self}->_process_commands( $s->{stack}, $item, $s->{cursor} + 1 );
-	$s->{output} .= $ret;
+	push @{ $s->{output} }, $ret;
 
 	return $s->{arg}[2];
 }
@@ -340,7 +340,7 @@ sub _blockDice {
 				$result .= chr( 97 + int( rand(26) ) );
 			}
 		}
-		$s->{output} .= $result;
+		push @{ $s->{output} }, $result;
 		return $s->{arg}[2];
 	}
 
@@ -354,7 +354,7 @@ sub _blockDice {
 	}
 	$total += $mod;
 
-	$s->{output} .= $total;
+	push @{ $s->{output} }, $total;
 	return $s->{arg}[2];
 }
 
@@ -369,7 +369,7 @@ sub _blockMap {
 
 	my ( $ret, $jump )
 	 = $s->{self}->_process_commands( $s->{stack}, $var, $s->{cursor} + 1 );
-	$s->{output} .= $ret;
+	push @{ $s->{output} }, $ret;
 
 	return $jump;
 }
@@ -390,7 +390,7 @@ sub _blockFormat {
 
 	my ( $ret, $jump )
 	 = $s->{self}->_process_commands( $s->{stack}, $s->{pa}, $s->{cursor} + 1 );
-	$s->{output} .= Compost::Template::Format->format( $ret, $format, @args);
+	push @{ $s->{output} }, Compost::Template::Format->format( $ret, $format, @args);
 
 	return $jump;
 }
@@ -411,7 +411,7 @@ sub _blockState {
 	if ( $match == $test ) {
 		my ( $ret, $jump )
 		 = $s->{self}->_process_commands( $s->{stack}, $s->{pa}, $s->{cursor} + 1 );
-		$s->{output} .= $ret;
+		push @{ $s->{output} }, $ret;
 	}
 	return $s->{arg}[2];
 }

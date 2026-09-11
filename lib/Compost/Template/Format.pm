@@ -82,7 +82,7 @@ sub _formatLcfirst {
 
 sub _formatReverse {
 	my $text = shift;
-	return reverse $text;
+	return scalar reverse $text;
 }
 
 sub _formatRepeat {
