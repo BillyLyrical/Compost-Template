@@ -1,0 +1,66 @@
+# Compost Template syntax highlighting for Geany
+# Add to: ~/.config/geany/filedefs/filetypes.compost
+
+[styling]
+# These are the highlighting styles for the Compost template filetype
+comment=comment
+tag_delimiter=string
+keyword=keyword
+tag_keyword=function
+variable=identifier
+magic_variable=type
+string_double=string
+string_single=string
+number=number
+dice=number
+operator=operator
+option=type
+block_end=keyword
+
+[keywords]
+# All keywords must be on a single line separated by spaces
+keyword=if elsif else unless end loop switch when random dice format state ignore
+tag_keyword=include extends block super macro call printf counter nop
+
+[settings]
+# Default extension
+extension=tmpl
+# Mime types
+mime_type=text/x-compost
+
+# The following characters define the beginning of a symbol
+symbol_chars=.(_)
+
+# These are some sample settings that you can enable or customize
+
+# Whether comments should be folded (displayed as +/- in the left margin)
+fold_comments=true
+
+# Whether code blocks should be folded
+fold_compact=false
+
+# The columns that a word wrap marker will be displayed at
+# wrap_start_column=72
+# wrap_type=1
+
+# These are for the HTML filetype, change them as appropriate
+# Using words like < and > can interfere with comment highlighting
+# so define comment_open/close explicitly
+# comment_open=<!--
+# comment_close=-->
+# These are used for the comment folding style in HTML
+# comment_open=<!--
+# comment_close=-->
+# This is a list of styles that can be used with HTML (or any language)
+# that uses { and } to delimit code blocks
+# block_open={
+# block_close=}
+# block_middle=
+
+[indent]
+# The following settings are used for the HTML filetype
+# Uncomment the appropriate settings for your language
+# uncomment for HTML
+# type=html
+# type=css
+# type=none

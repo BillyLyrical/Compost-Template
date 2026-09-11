@@ -1,0 +1,92 @@
+{
+  "name": "Compost Template",
+  "scopeName": "source.compost",
+  "fileTypes": ["tmpl", "compost"],
+  "patterns": [
+    {
+      "name": "comment.compost",
+      "begin": "<%\\s*#",
+      "end": "%>",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.comment.compost" }
+      }
+    },
+    {
+      "name": "meta.tag.compost",
+      "begin": "<%[-+]?",
+      "end": "[-+]?%>",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.tag.begin.compost" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.tag.end.compost" }
+      },
+      "patterns": [
+        {
+          "name": "comment.line.compost",
+          "match": "\\s*#.*"
+        },
+        {
+          "name": "keyword.control.compost",
+          "match": "\\b(if|elsif|else|unless|end|loop|switch|when|random|dice|format|state|ignore)\\b"
+        },
+        {
+          "name": "keyword.other.compost",
+          "match": "\\b(include|extends|block|super|macro|call|printf|nop|counter)\\b"
+        },
+        {
+          "name": "support.type.property.compost",
+          "match": "\\b(loop|map|format|state|block|macro)\\b(?=\\s*\\w)"
+        },
+        {
+          "name": "variable.language.compost",
+          "match": "\\$__(?:count__|index__|total__|first__|last__|inner__|outer__|even__|odd__|line__|file__|time__|user__|version__)"
+        },
+        {
+          "name": "variable.other.compost",
+          "match": "\\$\\w+(?:\\.\\w+)*"
+        },
+        {
+          "name": "constant.language.compost",
+          "match": "\\b(true|false|undef)\\b"
+        },
+        {
+          "name": "string.quoted.double.compost",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "variable.other.compost",
+              "match": "\\$\\w+(?:\\.\\w+)*"
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.compost",
+          "begin": "'",
+          "end": "'"
+        },
+        {
+          "name": "keyword.operator.compost",
+          "match": "(?:!=|[<>]=?|[=!]=)"
+        },
+        {
+          "name": "support.variable.property.compost",
+          "match": "-(?:html|url|shrug|global)"
+        },
+        {
+          "name": "entity.name.function.compost",
+          "match": "\\b(printf|sprintf)\\b"
+        },
+        {
+          "name": "constant.numeric.compost",
+          "match": "\\b\\d+[dD]\\w+\\b"
+        },
+        {
+          "name": "constant.numeric.compost",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    }
+  ]
+}
