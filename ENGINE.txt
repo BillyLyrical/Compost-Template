@@ -47,6 +47,7 @@ Opcode set (Constants.pm):
   OP_ENDBLOCK   (6)  - end a block
   OP_FINISH     (7)  - stop execution
   OP_EXTENDS    (8)  - declare parent template (parse-time only)
+  OP_SUPER      (9)  - insert parent block content (runtime)
 
 Block types (payload of OP_STARTBLOCK):
 
@@ -311,13 +312,14 @@ Notes
   from template execution. It's used for UI state management
   and could be extracted into a standalone module.
 
-- The engine has 91 tests covering all major features.
+- The engine has 95 tests covering all major features.
   Run with: perl t/Compost-Template.t
 
 - BLOCK_INSERT and BLOCK_PREFIX are defined in Constants but
   have no runtime handlers. They are reserved for future use.
 
-- Template inheritance uses extends/block tags. The child template
+- Template inheritance uses extends/block/super tags. The child template
   is compiled first (recording block definitions), then the parent
   is compiled. At runtime, _blockBlock checks for child overrides
-  and executes the appropriate block body.
+  and executes the appropriate block body. The super tag executes
+  the parent's default block body inline within the child's block.

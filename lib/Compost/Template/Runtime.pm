@@ -15,15 +15,18 @@ use Compost::Template::Misc;
 our $VERSION = '0.4.0';
 
 # keep in sync with Compost::Template::Parser
+# Index = opcode value (see Constants.pm)
 my @opmap = (
-	undef,          # OP_FINISH - handled by early return in _process_commands
-	\&_opData,
-	\&_opVar,
-	\&_opPrintf,
-	\&_opCall,
-	\&_opStartblock,
-	\&_opEndblock,
-	undef,          # OP_EXTENDS - handled at parse time
+	undef,          # OP_CONFIG (0) - not a runtime op
+	\&_opData,      # OP_DATA (1)
+	\&_opVar,       # OP_VAR (2)
+	\&_opPrintf,    # OP_PRINTF (3)
+	\&_opCall,      # OP_CALL (4)
+	\&_opStartblock, # OP_STARTBLOCK (5)
+	\&_opEndblock,  # OP_ENDBLOCK (6)
+	undef,          # OP_FINISH (7) - handled by early return
+	undef,          # OP_EXTENDS (8) - handled at parse time
+	\&_opSuper,     # OP_SUPER (9)
 );
 
 my @blockmap = (
@@ -204,6 +207,21 @@ sub _opEndblock {
 }
 
 # -------------------------
+sub _opSuper {
+	my $s = shift;
+
+	# Execute parent's default block body if available
+	if ( exists $s->{self}{_SUPER_BODY} and defined $s->{self}{_SUPER_BODY} ) {
+		my ( $ret, undef ) = $s->{self}->_process_commands(
+			$s->{self}{_SUPER_BODY}, $s->{pa}, 0
+		);
+		push @{ $s->{output} }, $ret;
+	}
+
+	return $s->{arg}[2];
+}
+
+# -------------------------
 sub _blockIf {
 	my $s = shift;
 
@@ -326,11 +344,21 @@ sub _blockBlock {
 
 	# Check if there's a child override for this block
 	if ( exists $s->{self}{_BLOCK_BODIES} and exists $s->{self}{_BLOCK_BODIES}{$name} ) {
+		# Set up super context so _opSuper can find the parent body
+		# Store on $self so it's accessible from nested _process_commands calls
+		my $parent_body = undef;
+		if ( exists $s->{self}{_PARENT_BLOCK_BODIES} and exists $s->{self}{_PARENT_BLOCK_BODIES}{$name} ) {
+			$parent_body = $s->{self}{_PARENT_BLOCK_BODIES}{$name};
+		}
+		$s->{self}{_SUPER_BODY} = $parent_body;
+
 		my $child_body = $s->{self}{_BLOCK_BODIES}{$name};
 		my ( $ret, undef ) = $s->{self}->_process_commands(
 			$child_body, $s->{pa}, 0
 		);
 		push @{ $s->{output} }, $ret;
+
+		$s->{self}{_SUPER_BODY} = undef;
 		return $s->{arg}[2];
 	}
 

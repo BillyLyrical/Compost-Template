@@ -4,7 +4,7 @@
 #########################
 use lib 'lib/';
 
-use Test::More tests => 91;
+use Test::More tests => 95;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -543,6 +543,14 @@ $template = $factory->new( 'child_override_one.tmpl' );
 $reply = $template->run();
 like( $reply, qr/<head>Override Title Only<\/head>/, 'inheritance - partial override title' );
 unlike( $reply, qr/Default Title/, 'inheritance - partial override no default title' );
+
+# test block super - child appends to parent content
+$template = $factory->new( 'child_super.tmpl' );
+$reply = $template->run();
+like( $reply, qr/<head>Default Title - My Site<\/head>/, 'inheritance - block super title' );
+like( $reply, qr/<nav>Main Navigation<\/nav>/, 'inheritance - block super keeps parent content' );
+like( $reply, qr/<p>Additional content from child<\/p>/, 'inheritance - block super adds child content' );
+like( $reply, qr/Footer Content/, 'inheritance - block super keeps parent footer' );
 
 # clear the chache again
 unlink <./t/cache/*>;

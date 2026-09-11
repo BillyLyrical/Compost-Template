@@ -20,6 +20,7 @@ Compost::Template - Simple Templating
 
  <% extends base.tmpl %>        - inherit from parent template
  <% block name %> ... <% /block %> - define overridable block
+ <% super %>                     - insert parent block content
 
  <% $var %>                     - insert variable
  <% $var1 or $var2 or 'oops' %> - "or" variables  
@@ -271,6 +272,32 @@ Example child overriding blocks:
 
 Blocks can contain any valid template content including variables,
 conditionals, loops, and other blocks.
+
+=item super
+
+  <% super %>
+
+The super tag inserts the parent template's default block content.
+This allows child templates to extend rather than replace parent blocks.
+
+Only valid inside a child template's block (after extends).
+
+Example parent (base.tmpl):
+
+  <head><% block title %>Default Title<% /block %></head>
+
+Example child (child.tmpl):
+
+  <% extends base.tmpl %>
+  <% block title %><% super %> - My Site<% /block %>
+
+Result:
+
+  <head>Default Title - My Site</head>
+
+Without super, the child would completely replace "Default Title".
+With super, the parent's content is preserved and the child can
+append or prepend additional content.
 
 =item Variables
 

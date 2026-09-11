@@ -34,6 +34,7 @@ my %parsemap = (
 	dice       => \&_doDice,
 	extends    => \&_doExtends,
 	block      => \&_doBlock,
+	super      => \&_doSuper,
 	FINISH     => \&_doFinish,
 );
 
@@ -114,6 +115,12 @@ sub _parse {
 			_CHILD_BLOCKS => $child_blocks,
 		};
 		_process_tokens( $parent_state, -1 );
+
+		# Store parent block bodies for super support
+		if ( exists $parent_state->{_PARENT_BLOCK_BODIES} ) {
+			$self->{_PARENT_BLOCK_BODIES} = $parent_state->{_PARENT_BLOCK_BODIES};
+		}
+
 		return $parent_state->{stack};
 	}
 
@@ -661,6 +668,25 @@ sub _doBlock {
 
 		my $end = _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_BLOCK );
 		_tidy_jump( $gs, $start, 'JUMP_END', $end + 1 );
+
+		# Save parent block body for super support
+		my @body = map { [ @$_ ] } @{ $gs->{stack} }[ $start + 1 .. $end - 1 ];
+		my $finish_pos = scalar @body;  # index where FINISH will be appended
+		for my $entry ( @body ) {
+			my $j = $entry->[2];
+			if ( $j > $end ) {
+				# Jump went past block body → land on FINISH
+				$entry->[2] = $finish_pos;
+			}
+			elsif ( $j > $start ) {
+				# Jump within block body → re-base
+				$entry->[2] -= $start + 1;
+			}
+			# else: jump before block body, leave as-is
+		}
+		push @body, [ $bs->{debug}, OP_FINISH, -1 ];
+		$gs->{_PARENT_BLOCK_BODIES}{$name} = \@body;
+
 		return 0;
 	}
 
@@ -696,6 +722,22 @@ sub _doBlock {
 	}
 	push @body, [ $bs->{debug}, OP_FINISH, -1 ];
 	$gs->{_BLOCK_BODIES}{$name} = \@body;
+
+	return 0;
+}
+
+# -------------------------
+sub _doSuper {
+	my ( $gs, $bs ) = @_;
+
+	# Only allowed inside child block context (when _CHILD_BLOCKS is NOT set)
+	# When parsing parent blocks (_CHILD_BLOCKS set), super is not valid
+	if ( exists $gs->{_CHILD_BLOCKS} ) {
+		die "'super' used outside of child block context " . _debug( $bs );
+	}
+
+	# Emit OP_SUPER - runtime will execute parent's default block body
+	_push_stack( $gs, $bs->{debug}, OP_SUPER, 'JUMP_NEXT' );
 
 	return 0;
 }
