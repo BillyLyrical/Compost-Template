@@ -4,7 +4,7 @@
 #########################
 use lib 'lib/';
 
-use Test::More tests => 71;
+use Test::More tests => 72;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -257,6 +257,12 @@ $template = Compost::Template->new(
 );
 $reply = $template->param( test => 'hello' )->run();
 is( $reply, 'olleh', 'format reverse' );
+
+$template = Compost::Template->new(
+    template => '<% format repeat 3 %><% $test %><% /format %>',
+);
+$reply = $template->param( test => 'ab' )->run();
+is( $reply, 'ababab', 'format repeat' );
 
 # ------------------------------------------------
 # dynamic templates

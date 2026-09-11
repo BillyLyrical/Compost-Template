@@ -25,6 +25,7 @@ my %formats = (
 	ucfirst    => \&_formatUcfirst,
 	lcfirst    => \&_formatLcfirst,
 	reverse    => \&_formatReverse,
+	repeat     => \&_formatRepeat,
 );
 
 sub isKnown {
@@ -78,6 +79,12 @@ sub _formatLcfirst {
 sub _formatReverse {
 	my $text = shift;
 	return reverse $text;
+}
+
+sub _formatRepeat {
+	my ( $text, $count ) = @_;
+	$count //= 1;
+	return $text x $count;
 }
 
 sub _formatTruncate {

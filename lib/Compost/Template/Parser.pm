@@ -536,7 +536,7 @@ sub _doFormat {
 	die "Bad format '$format' " . _debug( $bs )
 	 unless ( $format =~ m/^\w+$/ );
 
-	my $start = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_END', BLOCK_FORMAT, $format );
+	my $start = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_END', BLOCK_FORMAT, $format, @{ $bs->{arg} } );
 	my $newbs = _process_tokens( $gs );
 
 	die "Bad end to format block '$newbs->{tag}' " . _debug( $bs )
