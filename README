@@ -12,16 +12,17 @@ Features
 --------
 
  * <% if %> / <% elsif %> / <% else %> / <% unless %>
- * <% loop $list %> with __count__, __first__, __last__, __inner__, __even__, __odd__
+ * <% loop $list %> with __count__, __index__, __total__, __first__, __last__, __inner__, __even__, __odd__
  * <% random $list %> picks a random item from a list
- * <% dice 2d6+1 %> rolls dice (NdS+/-M notation)
+ * <% dice 2d6+1 %> rolls dice (NdS+/-M) or letter dice (NdB, NdX, ndx, NdA,nda)
  * <% switch %> / <% when %>
  * <% map $hash %> over hashes or arrays
  * <% printf "%08d" $var %> for padding and formatting
- * <% format upper %> / truncate / trim / wordwrap / text2html
+ * <% format upper %> / ucfirst / lcfirst / reverse / repeat / center / slugify / strip_tags / truncate_words / truncate / trim / wordwrap / text2html
  * <% call $callback $arg %> for Perl callbacks
  * <% state Key pattern %> for regex-matchable state
  * <% $var or $fallback %> for default values
+ * <% $__line__ %> / <% $__file__ %> - current line number and filename
  * Whitespace control with +-%> and -%>
  * Template includes with recursion protection
  * Compiled bytecode cache for performance
@@ -39,7 +40,7 @@ Installation
 Dependencies
 ------------
 
-Requires: File::Spec, Path::Tiny, Moo
+Requires: File::Spec, Path::Tiny
 Test-only: Test::More
 
 Documentation

@@ -39,12 +39,17 @@ Compost::Template - Simple Templating
  <% $_ %>              - anon array scalar items
  <% counter %>         - the loops index number (as an op)
  __count__  - the index number of this loop ( like <% counter %> )
+ __index__  - the 0-based index of this loop
+ __total__  - the total number of items in the loop
  __inner__  - is not true on the first or last pass
  __outer__  - is true on the first or last pass
  __even__   - is true on even numbered passes
  __odd__    - is true on odd numbered passes
  __first__  - is true on first pass
  __last__   - is true on last pass
+
+ <% $__line__ %>       - current line number in template
+ <% $__file__ %>       - current template filename
 
  <% format NAME ARGS? %> ... <% /format %>
  <% state State *.happy %> ... <% /state %>
@@ -270,6 +275,19 @@ array is found), and then the hash element 'name'.
 
 Variables don't use end tags.
 
+=item Magic Variables
+
+ <% $__line__ %>   - current line number in the template
+ <% $__file__ %>   - current template filename
+
+These are special variables that provide information about the current
+location in the template. $__line__ returns the 1-based line number,
+and $__file__ returns the filename (or '(template)' for inline templates).
+
+Example:
+
+  Line <% $__line__ %> of <% $__file__ %>
+
 =item Conditionals
 
  <% if $x %> ... <% /if %>
@@ -487,6 +505,8 @@ in the tag ( <% $var -global %> ).
 Loops create special variables (suggestions for better names wanted)...
 
  __count__  - the index number of this loop ( like <% counter %> )
+ __index__  - the 0-based index of this loop
+ __total__  - the total number of items in the loop
  __inner__  - is not true on the first or last pass
  __outer__  - is true on the first or last pass
  __even__   - is true on even numbered passes
@@ -562,6 +582,25 @@ Syntactic sugar for complex if/elsif/else structures.
 It can do simple equality checks <% when 'foo' %>, or more
 complex tests <% when >= 32 %>.  <% else %> is not required.
 
+=item random
+
+ <% random $list %> ... <% /random %>
+
+ Picks a random item from an array ref. Inside the block you can
+ access the item with <% $_ %>, and the index with <% $__index__ %>.
+
+=item dice
+
+ <% dice 2d6+1 %>       - roll 2 six-sided dice, add 1 (numeric: sum)
+ <% dice 8dB %>         - 8 binary digits (e.g. "01101001")
+ <% dice 4dX %>         - 4 uppercase hex digits (e.g. "A3F2")
+ <% dice 4dx %>         - 4 lowercase hex digits (e.g. "a3f2")
+ <% dice 3dA %>         - 3 uppercase letters (e.g. "QMZ")
+ <% dice 3da %>         - 3 lowercase letters (e.g. "qmz")
+
+Numeric dice (NdS+/-M) sum the results. Letter dice (NdB/X/x/A/a)
+concatenate the results. Modifiers (+/-) are only allowed on numeric dice.
+
 =item map
 
  <% map $users.list %>     - must be a hash ref
@@ -590,15 +629,22 @@ Currently implemented format types are
 
  uppercase   - uppercase it all
  upper       - alias for uppercase
- capitalize  - capitalize first letter of each word
  lowercase   - lowercase it all
  lower       - alias for lowercase
- truncate    - chops it short, takes an argument in chars
- trim        - removes leading & trailing text, and condenses internal whitespace
- wordwrap    - simple wordwrap, takes and argument for line length (in chars)
- text2html   - primitive text to html conversion, to be improved, oneday
+ ucfirst     - uppercase first letter
+ lcfirst     - lowercase first letter
+ capitalize  - capitalize first letter of each word
+ reverse     - reverse the string
+ repeat N    - repeat string N times
+ center N    - center in N-width field
+ slugify     - convert to URL-safe slug
+ strip_tags  - remove HTML tags
+ truncate N  - chop to N characters
+ truncate_words N - chop to N words
+ trim        - removes leading & trailing whitespace, condenses internal whitespace
+ wordwrap N  - simple wordwrap at N chars (default 78)
+ text2html   - primitive text to html conversion
  html        - alias for text2html
- wiki        - uses Compost::Wiki to markup to html - not currently used
 
 You can add your own formats...
 
