@@ -7,13 +7,12 @@ use warnings;
 use 5.014;
 use autodie;
 
-use Compost::Template;
+use Compost::Template::Constants qw(:all);
 use Compost::Template::Misc;
 
 our $VERSION = '0.2.9';
 
 package Compost::Template;
-# keep in sync with Compost::Template::Runtime;
 
 my %parsemap = (
 	data       => \&_badCall,

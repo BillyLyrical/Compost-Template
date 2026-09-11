@@ -9,46 +9,12 @@ use autodie;
 
 use Path::Tiny;
 use Compost::Template::Misc;
+use Compost::Template::Constants qw(:all);
 
 our $VERSION = '0.2.9';
 
 use constant {
-
-	OP_CONFIG      =>  0,
-	OP_DATA        =>  1,
-	OP_VAR         =>  2,
-	OP_PRINTF      =>  3,
-	OP_CALL        =>  4,
-	OP_STARTBLOCK  =>  5,
-	OP_ENDBLOCK    =>  6,
-	OP_FINISH      =>  7,
-
-	BLOCK_NOTIF    => 0,
-	BLOCK_IF       => 1,
-	BLOCK_ELSE     => 2,
-	BLOCK_LOOP     => 3,
-	BLOCK_INSERT   => 4,
-	BLOCK_PREFIX   => 5,
-	BLOCK_MAP      => 6,
-	BLOCK_FORMAT   => 7,
-	BLOCK_STATE    => 8,
-	BLOCK_RANDOM   => 9,
-	BLOCK_DICE     => 10,
-
-	TEST_NOT       => 0,
-	TEST_DEFINED   => 1,
-	TEST_EQUALS    => 2,
-	TEST_GT        => 3,
-	TEST_GTE       => 4,
-	TEST_LT        => 5,
-	TEST_LTE       => 6,
-
-	GLOBAL_VAR     => 0,
-	ESCAPE_HTML    => 1,
-	ESCAPE_URL     => 2,
-	VAR_SHRUG      => 3,
-
-	DELIMITER      => "\0\n",
+	DELIMITER => "\0\n",
 };
 
 # Compiled regexes
