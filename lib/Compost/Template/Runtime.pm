@@ -12,7 +12,7 @@ use autodie;
 use Compost::Template::Constants qw(:all);
 use Compost::Template::Misc;
 
-our $VERSION = '0.3.1';
+our $VERSION = '0.3.2';
 
 # keep in sync with Compost::Template::Parser
 my @opmap = (
@@ -492,6 +492,15 @@ sub _get_var {
 			}
 			return $f || '(template)';
 		}
+	}
+	if ( $name eq '$__time__' ) {
+		return time;
+	}
+	if ( $name eq '$__user__' ) {
+		return $ENV{USER} || $ENV{LOGNAME} || '(unknown)';
+	}
+	if ( $name eq '$__version__' ) {
+		return $Compost::Template::VERSION;
 	}
 
 	return $name
