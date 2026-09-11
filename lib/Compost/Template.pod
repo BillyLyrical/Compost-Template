@@ -59,6 +59,9 @@ Compost::Template - Simple Templating
 
  <% $__line__ %>       - current line number in template
  <% $__file__ %>       - current template filename
+ <% $__time__ %>       - current unix timestamp
+ <% $__user__ %>       - current system user
+ <% $__version__ %>    - Compost::Template version
 
  <% format NAME ARGS? %> ... <% /format %>
  <% state State *.happy %> ... <% /state %>
@@ -454,14 +457,19 @@ Variables don't use end tags.
 
  <% $__line__ %>   - current line number in the template
  <% $__file__ %>   - current template filename
+ <% $__time__ %>   - current unix timestamp (time())
+ <% $__user__ %>   - current system user ($ENV{USER})
+ <% $__version__ %> - Compost::Template version
 
 These are special variables that provide information about the current
-location in the template. $__line__ returns the 1-based line number,
-and $__file__ returns the filename (or '(template)' for inline templates).
+location or environment. $__line__ returns the 1-based line number,
+$__file__ returns the filename (or '(template)' for inline templates),
+$__time__ returns the current unix timestamp, $__user__ returns the
+current system user, and $__version__ returns the module version.
 
 Example:
 
-  Line <% $__line__ %> of <% $__file__ %>
+  Line <% $__line__ %> of <% $__file__ %> by <% $__user__ %>
 
 =item Conditionals
 
@@ -878,11 +886,11 @@ against one word, or a star '*' to match against one or more.
 the set_call( $name, $callback ) method, and you can remove it again
 with the delete_call( $name ) method.
 
+'call' can also be used to invoke macros defined with the 'macro' tag.
+See the 'macro' section above for details.
+
 'call' doesn't use end tags, and can be considered the non-block
 version of 'format'.
-
-Currently no 'call' functions come with Compost, but im thinking about
-it, (maybe i'll add Date, Time, Hostname, User - suggestions please).
 
 =back
 
@@ -1166,25 +1174,9 @@ together...
 
 =back
 
-=head1 BUGS
-
-A linebreak seems to be being added to the end of the output, it's
-in the compiled cache, so it's being added by Compost::Template::Parser.
-If it matters, the easy fix is to swallow whitespace on your last tag.
-If you don't end with a tag, then append <%- nop -%> to your template.
-
-=head1 TODO
-
-Try using Storable instead of building bytecode
-or maybe write a Runtime as a C lib, for extra speed.
-
-Document the code better
-
-Abstract out parsing more, i wanna add more -options.
-
 =head1 COPYRIGHT
 
-Copyright (c) 2007 Billy Lyrical <billy.lyrical@gmail.com>.  All rights reserved.
+Copyright (c) 2007-2026 Billy Lyrical <billy.lyrical@gmail.com>.  All rights reserved.
 
 This library is free software; you can redistribute it and/or modify it under the same
 terms as Perl itself.
