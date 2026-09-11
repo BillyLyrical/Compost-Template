@@ -569,7 +569,7 @@ sub _doState {
 	 unless ( $newbs->{tag} eq '/state' );
 
 	my $end = _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_STATE );
-	_tidy_jump( $gs, $start, 'JUMP_END', 'NEXT' );
+	_tidy_jump( $gs, $start, 'JUMP_END', $end + 1 );
 }
 
 # -------------------------
