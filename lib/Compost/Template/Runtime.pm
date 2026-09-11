@@ -389,46 +389,25 @@ sub _testDefined {
 }
 
 # -------------------------
-sub _testEquals {
-	my ( $s, $args ) = @_;
-
+sub _testCompare {
+	my ( $s, $args, $op ) = @_;
 	my $var1 = _get_var( $s, $args->[0], 0 );
 	my $var2 = _get_var( $s, $args->[1], 0 );
 	return 0 if !defined $var1 || !defined $var2;
-	return ( $var1 eq $var2 ) ? 1 : 0;
+	if    ( $op eq 'eq' ) { return ( $var1 eq $var2 ) ? 1 : 0 }
+	elsif ( $op eq 'ne' ) { return ( $var1 ne $var2 ) ? 1 : 0 }
+	elsif ( $op eq 'gt' ) { return ( $var1 gt $var2 ) ? 1 : 0 }
+	elsif ( $op eq 'ge' ) { return ( $var1 ge $var2 ) ? 1 : 0 }
+	elsif ( $op eq 'lt' ) { return ( $var1 lt $var2 ) ? 1 : 0 }
+	elsif ( $op eq 'le' ) { return ( $var1 le $var2 ) ? 1 : 0 }
+	return 0;
 }
 
-# -------------------------
-sub _testGt {
-	my ( $s, $args ) = @_;
-	my $var1 = _get_var( $s, $args->[0], 0 );
-	my $var2 = _get_var( $s, $args->[1], 0 );
-	return ( defined $var1 && defined $var2 && $var1 gt $var2 ) ? 1 : 0;
-}
-
-# -------------------------
-sub _testGte {
-	my ( $s, $args ) = @_;
-	my $var1 = _get_var( $s, $args->[0], 0 );
-	my $var2 = _get_var( $s, $args->[1], 0 );
-	return ( defined $var1 && defined $var2 && $var1 ge $var2 ) ? 1 : 0;
-}
-
-# -------------------------
-sub _testLt {
-	my ( $s, $args ) = @_;
-	my $var1 = _get_var( $s, $args->[0], 0 );
-	my $var2 = _get_var( $s, $args->[1], 0 );
-	return ( defined $var1 && defined $var2 && $var1 lt $var2 ) ? 1 : 0;
-}
-
-# -------------------------
-sub _testLte {
-	my ( $s, $args ) = @_;
-	my $var1 = _get_var( $s, $args->[0], 0 );
-	my $var2 = _get_var( $s, $args->[1], 0 );
-	return ( defined $var1 && defined $var2 && $var1 le $var2 ) ? 1 : 0;
-}
+sub _testEquals { return _testCompare( $_[0], $_[1], 'eq' ) }
+sub _testGt     { return _testCompare( $_[0], $_[1], 'gt' ) }
+sub _testGte    { return _testCompare( $_[0], $_[1], 'ge' ) }
+sub _testLt     { return _testCompare( $_[0], $_[1], 'lt' ) }
+sub _testLte    { return _testCompare( $_[0], $_[1], 'le' ) }
 
 # ====================================================
 # helper subs
