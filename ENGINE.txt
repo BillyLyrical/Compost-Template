@@ -75,11 +75,12 @@ Variable paths are pre-compiled at parse time. The parser splits
 in the bytecode (Runtime.pm:510-548). At runtime, _get_var walks
 the parts array without splitting or regex work.
 
-Two namespaces:
-  - pa:     current scope (changes inside loops)
-  - global: reference to $self->{_PARAMS}
+Three scopes:
+  - local ($var):   current scope (changes inside loops)
+  - global ($.var):  reference to $self->{_PARAMS}
+  - parent ($..var): one level up via scope_stack
 
-The -global flag forces resolution against the global namespace.
+The -global flag is a legacy alias for $.var.
 Anonymous array items use $_ which resolves to pa->{__anon__}.
 
 ### Magic Variables

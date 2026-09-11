@@ -74,5 +74,6 @@ The grammar file follows the TextMate format and can be adapted for:
 - Strings: `"..."`, `'...'`
 - Comments: `<% # comment %>`
 - Operators: `=`, `!=`, `>`, `<`, `>=`, `<=`
-- Options: `-html`, `-url`, `-shrug`, `-global`
+- Scope prefixes: `$.var` (global), `$..var` (parent)
+- Options: `-html`, `-url`, `-shrug`, `-global` (legacy alias for `$.var`)
 - Dice notation: `2d6+1`, `4dX`

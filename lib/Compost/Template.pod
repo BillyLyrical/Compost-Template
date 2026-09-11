@@ -682,8 +682,9 @@ visible within a template loop.  For the computer-science geeks among
 you, a <% loop %> introduces a new scope much like a perl subroutine
 call. 
 
-If you want a variable to be global you can use the '-global' option
-in the tag ( <% $var -global %> ).
+To access variables from the global scope, use the $. prefix:
+<% $.var %>. To access the parent scope, use $..: <% $..var %>.
+The -global flag is still supported as a legacy alias for $.var.
 
 Loops create special variables (suggestions for better names wanted)...
 
