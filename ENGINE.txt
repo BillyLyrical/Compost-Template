@@ -312,7 +312,7 @@ Notes
   from template execution. It's used for UI state management
   and could be extracted into a standalone module.
 
-- The engine has 100 tests covering all major features.
+- The engine has 104 tests covering all major features.
   Run with: perl t/Compost-Template.t
 
 - BLOCK_INSERT and BLOCK_PREFIX are defined in Constants but
@@ -328,3 +328,8 @@ Notes
   <% call name $args %>. Macro bodies are compiled to bytecode and
   stored in _MACROS. At runtime, _opCall checks for macros before
   Perl callbacks. Parameters are bound to arguments in a local scope.
+
+- Filters use pipe syntax: <% $var | filter1 | filter2 %>. Filters
+  are extracted during parsing and stored in bytecode with a sentinel
+  value (256) to separate them from variable options. At runtime,
+  _opVar applies filters in order using Format.pm functions.

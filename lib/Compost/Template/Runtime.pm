@@ -12,7 +12,7 @@ use autodie;
 use Compost::Template::Constants qw(:all);
 use Compost::Template::Misc;
 
-our $VERSION = '0.5.0';
+our $VERSION = '0.5.1';
 
 # keep in sync with Compost::Template::Parser
 # Index = opcode value (see Constants.pm)
@@ -114,14 +114,20 @@ sub _opVar {
 
 	my %options;
 	my $opt_start = 5 + $path_count;
-	if ( scalar @{ $s->{arg} } > $opt_start ) {
-		my $c = $opt_start;
-		while ( $c < scalar @{ $s->{arg} } ) {
-			my $opt = $s->{arg}[$c++];
-			die "Bad var option '$opt'" . _linenum( $s, $s->{arg}[0] )
-			 if ( $opt > $#varmap );
-			$options{ $varmap[ $opt ]  } = 1;
-		}
+	my $c = $opt_start;
+
+	# Parse options (integers)
+	while ( $c < scalar @{ $s->{arg} } and $s->{arg}[$c] =~ m/^\d+$/ and $s->{arg}[$c] <= $#varmap ) {
+		my $opt = $s->{arg}[$c++];
+		$options{ $varmap[ $opt ] } = 1;
+	}
+
+	# Parse filters (after sentinel value 256)
+	my @filters;
+	if ( $c < scalar @{ $s->{arg} } and $s->{arg}[$c] == 256 ) {
+		$c++;  # skip sentinel
+		my $filter_count = $s->{arg}[$c++];
+		@filters = @{ $s->{arg} }[ $c .. $c + $filter_count - 1 ];
 	}
 
 	my $global = ( exists $options{global} ) ? 1 : 0;
@@ -139,6 +145,15 @@ sub _opVar {
 	if ( exists $options{url} ) {
 		$var = Compost::Template::Misc::url_encode( $var );
 	}
+
+	# Apply filters
+	if ( @filters ) {
+		require Compost::Template::Format;
+		for my $filter ( @filters ) {
+			$var = Compost::Template::Format->format( $var, $filter );
+		}
+	}
+
 	push @{ $s->{output} }, $var;
 
 	return $s->{arg}[2];

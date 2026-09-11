@@ -10,7 +10,7 @@ use autodie;
 use Compost::Template::Constants qw(:all);
 use Compost::Template::Misc;
 
-our $VERSION = '0.5.0';
+our $VERSION = '0.5.1';
 
 package Compost::Template;
 
@@ -240,7 +240,15 @@ sub _process_tokens {
 			next;
 		}
 
-		@{ $bs->{arg} } = grep { !/^<%$|^%>$|^-\w+$/ } split /\s+/, $bs->{chunk};
+		# Extract filter chain before whitespace splitting
+		$bs->{filters} = [];
+		my $chunk_content = $bs->{chunk};
+		if ( $chunk_content =~ s/\|\s*(\w+(?:\s*\|\s*\w+)*)\s*%>/%>/ ) {
+			my $filter_str = $1;
+			@{ $bs->{filters} } = map { s/^\s+|\s+$//gr } split /\|/, $filter_str;
+		}
+
+		@{ $bs->{arg} } = grep { !/^<%$|^%>$|^-\w+$/ } split /\s+/, $chunk_content;
 		$bs->{opt} = {};
 		map{ $bs->{opt}{$_} = 1 } grep { /^\-\w+$/ } split /\s+/, $bs->{chunk};
 
@@ -314,6 +322,13 @@ sub _doVar {
 	exists $bs->{opt}{-html}   and push @param, ESCAPE_HTML;
 	exists $bs->{opt}{-url}    and push @param, ESCAPE_URL;
 	exists $bs->{opt}{-shrug}  and push @param, VAR_SHRUG;
+
+	# Add filters if present
+	my @filters = @{ $bs->{filters} // [] };
+	if ( @filters ) {
+		# Use 256 as sentinel to separate options from filters
+		push @param, 256, scalar @filters, @filters;
+	}
 
 	_push_stack( $gs, $bs->{debug}, OP_VAR, 'JUMP_NEXT', @param );
 

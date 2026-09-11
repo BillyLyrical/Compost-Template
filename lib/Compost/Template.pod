@@ -25,6 +25,8 @@ Compost::Template - Simple Templating
  <% call name $args %>          - call a macro or registered function
 
  <% $var %>                     - insert variable
+ <% $var | filter %>            - apply filter to variable
+ <% $var | filter1 | filter2 %> - chain multiple filters
  <% $var1 or $var2 or 'oops' %> - "or" variables  
  <% $var -global %>             - insert global variable
  <% $var -html %>               - escape as html
@@ -333,6 +335,36 @@ Multiple parameters:
 
 Macros can be defined in included files for reuse across templates
 (macro libraries).
+
+=item Filters
+
+  <% $var | filter %>
+  <% $var | filter1 | filter2 %>
+
+Filters transform variable output inline. Chain multiple filters
+with the pipe character (|). Filters are applied left to right.
+
+Example:
+
+  <% $name | uppercase %>       → HELLO
+  <% $name | ucfirst %>         → Hello
+  <% $name | slugify %>         → hello-world
+  <% $html | strip_tags %>      → plain text
+
+Chained filters:
+
+  <% $name | uppercase | reverse %>  → OLLEH
+  <% $name | ucfirst | slugify %>    → hello-world
+
+Available filters (same as format tag):
+  uppercase, lowercase, ucfirst, lcfirst, capitalize,
+  reverse, repeat N, center N, slugify, strip_tags,
+  truncate N, truncate_words N, trim, wordwrap N,
+  text2html (alias: html)
+
+Filters can be combined with options:
+
+  <% $var | uppercase -shrug %>
 
 =item Variables
 

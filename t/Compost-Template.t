@@ -4,7 +4,7 @@
 #########################
 use lib 'lib/';
 
-use Test::More tests => 99;
+use Test::More tests => 104;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -577,6 +577,38 @@ $template = Compost::Template->new(
 );
 $reply = $template->run();
 is( $reply, '[A][B]', 'macro - multiple calls' );
+
+# ------------------------------------------------
+# test filters
+$template = Compost::Template->new(
+    template => '<% $name | uppercase %>',
+);
+$reply = $template->param(name => 'hello')->run();
+is( $reply, 'HELLO', 'filter - uppercase' );
+
+$template = Compost::Template->new(
+    template => '<% $name | uppercase | reverse %>',
+);
+$reply = $template->param(name => 'hello')->run();
+is( $reply, 'OLLEH', 'filter - chained' );
+
+$template = Compost::Template->new(
+    template => '<% $name | ucfirst %>',
+);
+$reply = $template->param(name => 'hello')->run();
+is( $reply, 'Hello', 'filter - ucfirst' );
+
+$template = Compost::Template->new(
+    template => '<% $name | slugify %>',
+);
+$reply = $template->param(name => 'Hello World!')->run();
+is( $reply, 'hello-world', 'filter - slugify' );
+
+$template = Compost::Template->new(
+    template => '<% $name | strip_tags %>',
+);
+$reply = $template->param(name => '<b>bold</b>')->run();
+is( $reply, 'bold', 'filter - strip_tags' );
 
 # clear the chache again
 unlink <./t/cache/*>;
