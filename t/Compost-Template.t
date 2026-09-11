@@ -4,7 +4,7 @@
 #########################
 use lib 'lib/';
 
-use Test::More tests => 79;
+use Test::More tests => 85;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -211,6 +211,44 @@ $template = Compost::Template->new(
 );
 $reply = $template->run();
 ok( $reply >= 1 && $reply <= 22, 'dice 3d8-2' );
+
+$template = Compost::Template->new(
+    template => '<% dice 8dB %>',
+);
+$reply = $template->run();
+like( $reply, qr/^[01]{8}$/, 'dice 8dB binary' );
+
+$template = Compost::Template->new(
+    template => '<% dice 4dX %>',
+);
+$reply = $template->run();
+like( $reply, qr/^[0-9A-F]{4}$/, 'dice 4dX hex upper' );
+
+$template = Compost::Template->new(
+    template => '<% dice 4dx %>',
+);
+$reply = $template->run();
+like( $reply, qr/^[0-9a-f]{4}$/, 'dice 4dx hex lower' );
+
+$template = Compost::Template->new(
+    template => '<% dice 3dA %>',
+);
+$reply = $template->run();
+like( $reply, qr/^[A-Z]{3}$/, 'dice 3dA alpha upper' );
+
+$template = Compost::Template->new(
+    template => '<% dice 3da %>',
+);
+$reply = $template->run();
+like( $reply, qr/^[a-z]{3}$/, 'dice 3da alpha lower' );
+
+eval {
+    $template = Compost::Template->new(
+        template => '<% dice 3da+1 %>',
+    );
+    $template->run();
+};
+like( $@, qr/Bad dice expression/, 'dice modifier on letter dice errors' );
 
 # ------------------------------------------------
 # test printf

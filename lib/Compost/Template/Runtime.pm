@@ -318,6 +318,33 @@ sub _blockDice {
 	my $s = shift;
 
 	my $expr = $s->{arg}[4];
+
+	# letter dice: Nd[ABHXxa] - concatenate results
+	if ( $expr =~ /^(\d+)d([ABHXxa])$/ ) {
+		my ( $count, $type ) = ( $1, $2 );
+		my $result = '';
+		for ( 1 .. $count ) {
+			if ( $type eq 'B' ) {
+				$result .= int( rand(2) );
+			}
+			elsif ( $type eq 'X' ) {
+				$result .= sprintf( '%X', int( rand(16) ) );
+			}
+			elsif ( $type eq 'x' ) {
+				$result .= sprintf( '%x', int( rand(16) ) );
+			}
+			elsif ( $type eq 'A' ) {
+				$result .= chr( 65 + int( rand(26) ) );
+			}
+			elsif ( $type eq 'a' ) {
+				$result .= chr( 97 + int( rand(26) ) );
+			}
+		}
+		$s->{output} .= $result;
+		return $s->{arg}[2];
+	}
+
+	# numeric dice: NdS+/-M - sum results
 	my ($count, $sides, $mod) = $expr =~ /^(\d+)d(\d+)([+-]\d+)?$/;
 	$mod //= 0;
 

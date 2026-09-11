@@ -380,7 +380,7 @@ sub _doRandom {
 }
 
 # -------------------------
-# dice notation: NdS+/-M
+# dice notation: NdS+/-M or Nd[ABHXx]
 sub _doDice {
 	my ( $gs, $bs ) = @_;
 
@@ -389,7 +389,7 @@ sub _doDice {
 
 	my $expr = shift @{ $bs->{arg} };
 	die "Bad dice expression '$expr' in '$bs->{chunk}' " . _debug( $bs )
-	 unless ( $expr =~ m/^\d+d\d+([+-]\d+)?$/ );
+	 unless ( $expr =~ m/^\d+d(?:\d+(?:[+-]\d+)?|[ABHXxa])$/ );
 
 	my $start = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_END', BLOCK_DICE, $expr );
 	my $end   = _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_NEXT', BLOCK_DICE );
