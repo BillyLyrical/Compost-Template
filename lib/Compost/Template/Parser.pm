@@ -361,6 +361,10 @@ sub _doIf {
 	my @elses;
 	my $prev   = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_ELSE', BLOCK_IF, _get_test( $bs ) );
 	my $newbs  = _process_tokens( $gs );
+
+	die "Unclosed block, no closing tag for 'if' " . _debug( $bs )
+	 if ( $newbs == 0 );
+
 	push @elses, _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_END', BLOCK_IF );
 
 	while ( $newbs->{tag} eq 'elsif' ) {
@@ -397,6 +401,10 @@ sub _doUnless {
 
 	my $prev  = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_ELSE', BLOCK_NOTIF, _get_test( $bs ) );
 	my $newbs = _process_tokens( $gs );
+
+	die "Unclosed block, no closing tag for 'unless' " . _debug( $bs )
+	 if ( $newbs == 0 );
+
 	push @elses, _push_stack( $gs, $bs->{debug}, OP_ENDBLOCK, 'JUMP_END', BLOCK_NOTIF );
 	_tidy_jump( $gs, $prev, 'JUMP_ELSE', 'NEXT' );
 
@@ -526,6 +534,9 @@ sub _doSwitch {
 
 	my $newbs = _process_tokens( $gs );
 
+	die "Unclosed block, no closing tag for 'switch' " . _debug( $bs )
+	 if ( $newbs == 0 );
+
 	my $prev = -1;
 	while ( $newbs->{tag} eq 'when' ) {
 		if ( scalar @{ $newbs->{arg} } == 1 ) {
@@ -635,6 +646,9 @@ sub _doFormat {
 	my $start = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_END', BLOCK_FORMAT, $format, @{ $bs->{arg} } );
 	my $newbs = _process_tokens( $gs );
 
+	die "Unclosed block, no closing tag for 'format' " . _debug( $bs )
+	 if ( $newbs == 0 );
+
 	die "Bad end to format block '$newbs->{tag}' " . _debug( $bs )
 	 unless ( $newbs->{tag} eq '/format' );
 
@@ -660,6 +674,9 @@ sub _doState {
 	 or die "Bad match '$val' in '$bs->{chunk}' " . _debug( $bs );
 	my $start = _push_stack( $gs, $bs->{debug}, OP_STARTBLOCK, 'JUMP_END', BLOCK_STATE, $state, $regex );
 	my $newbs = _process_tokens( $gs );
+
+	die "Unclosed block, no closing tag for 'state' " . _debug( $bs )
+	 if ( $newbs == 0 );
 
 	die "Bad end to state block '$newbs->{tag}' " . _debug( $bs )
 	 unless ( $newbs->{tag} eq '/state' );
