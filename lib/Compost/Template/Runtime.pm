@@ -244,32 +244,13 @@ sub _blockElse {
 sub _blockLoop {
 	my $s = shift;
 
-	my $global = ( $#{ $s->{arg} } > 4 and $s->{arg}[5] == GLOBAL_VAR ) ? 1 : 0;
-	my $list = _get_var( $s, $s->{arg}[4], $global );
-	die "'$list' is not an ARRAY ref " . _linenum( $s, $s->{arg}[0] )
-	 if ( not ref $list or ref $list ne 'ARRAY' );
+	my $list = _get_loop_list( $s );
+	my $total = scalar @$list;
 
 	my $count = 0;
-	my $top = $#{ $list };
 	for my $item ( @$list ) {
-		# anon arrays
-		if ( ref $item eq '' ) {
-			$item = { __anon__ => $item };
-		}
-		elsif ( ref $item eq 'SCALAR' ) {
-			$item = { __anon__ => $$item };
-		}
-
-		# insert loop data tags
-		$item->{'__count__'} = $count + 1;
-		$item->{'__index__'} = $count;
-		$item->{'__total__'} = scalar @$list;
-		$item->{'__first__'} = ( $count == 0 ) ? 1 : 0;
-		$item->{'__last__'}  = ( $count == $top ) ? 1 : 0;
-		$item->{'__inner__'} = ( $count != 0 and $count != $top ) ? 1 : 0;
-		$item->{'__outer__'} = !$item->{'__inner__'};
-		$item->{'__even__'}  = ( $count % 2 ) ? 1 : 0;
-		$item->{'__odd__'}   = !$item->{'__even__'};
+		$item = _wrap_anon_item( $item );
+		_set_loop_vars( $item, $count, $total );
 
 		my ( $ret, $jump )
 		 = $s->{self}->_process_commands( $s->{stack}, $item, $s->{cursor} + 1 );
@@ -284,27 +265,14 @@ sub _blockLoop {
 sub _blockRandom {
 	my $s = shift;
 
-	my $global = ( $#{ $s->{arg} } > 4 and $s->{arg}[5] == GLOBAL_VAR ) ? 1 : 0;
-	my $list = _get_var( $s, $s->{arg}[4], $global );
-	die "'$list' is not an ARRAY ref " . _linenum( $s, $s->{arg}[0] )
-	 if ( not ref $list or ref $list ne 'ARRAY' );
+	my $list = _get_loop_list( $s );
 
 	die "Empty list for random " . _linenum( $s, $s->{arg}[0] )
 	 unless @$list;
 
 	my $index = int( rand( scalar @$list ) );
-	my $item = $list->[$index];
-
-	# anon arrays
-	if ( ref $item eq '' ) {
-		$item = { __anon__ => $item };
-	}
-	elsif ( ref $item eq 'SCALAR' ) {
-		$item = { __anon__ => $$item };
-	}
-
-	$item->{'__count__'} = $index + 1;
-	$item->{'__index__'} = $index;
+	my $item = _wrap_anon_item( $list->[$index] );
+	_set_loop_vars( $item, $index, scalar @$list );
 
 	my ( $ret, $jump )
 	 = $s->{self}->_process_commands( $s->{stack}, $item, $s->{cursor} + 1 );
@@ -474,6 +442,46 @@ sub _testLte {
 
 # ====================================================
 # helper subs
+
+# -------------------------
+sub _get_loop_list {
+	my ( $s ) = @_;
+
+	my $global = ( $#{ $s->{arg} } > 4 and $s->{arg}[5] == GLOBAL_VAR ) ? 1 : 0;
+	my $list = _get_var( $s, $s->{arg}[4], $global );
+	die "'$list' is not an ARRAY ref " . _linenum( $s, $s->{arg}[0] )
+	 if ( not ref $list or ref $list ne 'ARRAY' );
+
+	return $list;
+}
+
+# -------------------------
+sub _wrap_anon_item {
+	my ( $item ) = @_;
+
+	if ( ref $item eq '' ) {
+		return { __anon__ => $item };
+	}
+	elsif ( ref $item eq 'SCALAR' ) {
+		return { __anon__ => $$item };
+	}
+	return $item;
+}
+
+# -------------------------
+sub _set_loop_vars {
+	my ( $item, $index, $total ) = @_;
+
+	$item->{'__count__'} = $index + 1;
+	$item->{'__index__'} = $index;
+	$item->{'__total__'} = $total;
+	$item->{'__first__'} = ( $index == 0 ) ? 1 : 0;
+	$item->{'__last__'}  = ( $index == $total - 1 ) ? 1 : 0;
+	$item->{'__inner__'} = ( $index != 0 and $index != $total - 1 ) ? 1 : 0;
+	$item->{'__outer__'} = !$item->{'__inner__'};
+	$item->{'__even__'}  = ( $index % 2 ) ? 1 : 0;
+	$item->{'__odd__'}   = !$item->{'__even__'};
+}
 
 # -------------------------
 sub _linenum {
