@@ -28,6 +28,7 @@ my %formats = (
 	repeat     => \&_formatRepeat,
 	center     => \&_formatCenter,
 	slugify    => \&_formatSlugify,
+	strip_tags => \&_formatStripTags,
 );
 
 sub isKnown {
@@ -104,6 +105,12 @@ sub _formatSlugify {
 	$text =~ s/[^\w\s-]//g;
 	$text =~ s/[\s_]+/-/g;
 	$text =~ s/^-+|-+$//g;
+	return $text;
+}
+
+sub _formatStripTags {
+	my $text = shift;
+	$text =~ s/<[^>]+>//g;
 	return $text;
 }
 

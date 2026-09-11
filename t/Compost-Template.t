@@ -4,7 +4,7 @@
 #########################
 use lib 'lib/';
 
-use Test::More tests => 74;
+use Test::More tests => 75;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -275,6 +275,12 @@ $template = Compost::Template->new(
 );
 $reply = $template->param( test => 'Hello World! How are you?' )->run();
 is( $reply, 'hello-world-how-are-you', 'format slugify' );
+
+$template = Compost::Template->new(
+    template => '<% format strip_tags %><% $test %><% /format %>',
+);
+$reply = $template->param( test => '<b>bold</b> and <i>italic</i>' )->run();
+is( $reply, 'bold and italic', 'format strip_tags' );
 
 # ------------------------------------------------
 # dynamic templates
