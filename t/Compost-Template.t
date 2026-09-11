@@ -4,7 +4,7 @@
 #########################
 use lib 'lib/';
 
-use Test::More tests => 69;
+use Test::More tests => 70;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -245,6 +245,12 @@ $template = Compost::Template->new(
 );
 $reply = $template->param( test => 'hello world' )->run();
 is( $reply, 'Hello world', 'format ucfirst' );
+
+$template = Compost::Template->new(
+    template => '<% format lcfirst %><% $test %><% /format %>',
+);
+$reply = $template->param( test => 'HELLO WORLD' )->run();
+is( $reply, 'hELLO WORLD', 'format lcfirst' );
 
 # ------------------------------------------------
 # dynamic templates
