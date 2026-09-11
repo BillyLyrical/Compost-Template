@@ -16,7 +16,7 @@ our $VERSION = '0.1.1';
 
 # keep in sync with Compost::Template::Parser
 my @opmap = (
-	\&_opFinish,
+	undef,          # OP_FINISH - handled by early return in _process_commands
 	\&_opData,
 	\&_opVar,
 	\&_opPrintf,
@@ -55,13 +55,9 @@ my $DEBUG = 0;
 
 # Compiled regexes
 my $RE_GLOBAL_OPT = qr/^-global$/;
-my $RE_VAR_PREFIX = qr/^\$/;
-my $RE_CODEREF    = qr/CODE/;
 my $RE_ARRAY_REF  = qr/ARRAY/;
 my $RE_HASH_ARRAY = qr/HASH|ARRAY/;
 my $RE_NUMERIC    = qr/^\d+$/;
-my $RE_NEGATE     = qr{^\!};
-my $RE_ANON_SCALAR = qr{^$};
 
 # -------------------------------------------------------------------
 sub _process_commands {
@@ -93,12 +89,6 @@ sub _process_commands {
 		( defined $mode and $mode == 1 ) and return ( join( '', @{ $state->{output} } ), $jump );
 		$state->{cursor} = $jump;
 	}
-}
-
-# -------------------------
-sub _opFinish {
-	my $s = shift;
-	die "FINISH called";
 }
 
 # -------------------------
