@@ -1,69 +1,58 @@
-Compost-Template version 0.1.0
-=============================
+Compost::Template v0.1.0
+========================
 
-Compost::Template is a perl templating module, originally based on
-HTML::Template, and like HTML::Template attempts to make using
-templates simple and natural.
+A Perl templating engine. Originally written in 2005, updated and
+modernized for current Perl (5.14+).
 
-Compost::Template has a more elegant syntax that solves the problems
-i had with HTML::Template.  It also compiles the Template into a
-simple bytecode format, that is fast to interpret.
+Templates are compiled to a simple bytecode format for fast interpretation.
+Useful for web templating, text generation, or any job that benefits from
+a clean template syntax.
 
-Compost::Template is useful for web templating, but also for other
-templating jobs, it's features include...
+Features
+--------
 
- * cleaner syntax
- * better whitespce control
- * printf, to manage padding  
- * more flexible than HTML::Template
- * a state namespace, that is globable
- * able to manage callbacks
- * template errors contain line numbers
+ * <% if %> / <% elsif %> / <% else %> / <% unless %>
+ * <% loop $list %> with __count__, __first__, __last__, __inner__, __even__, __odd__
+ * <% switch %> / <% when %>
+ * <% map $hash %> over hashes or arrays
+ * <% printf "%08d" $var %> for padding and formatting
+ * <% format upper %> / truncate / trim / wordwrap / text2html
+ * <% call $callback $arg %> for Perl callbacks
+ * <% state Key pattern %> for regex-matchable state
+ * <% $var or $fallback %> for default values
+ * Whitespace control with +-%> and -%>
+ * Template includes with recursion protection
+ * Compiled bytecode cache for performance
+ * Line-number error reporting
+ * HTML and URL escaping
 
-For more information, perldoc Compost::Template
+Installation
+------------
 
-Compost::Template was part of my Compost cms, which is still being
-developed and pondered.  Compost cms is a simple lightweight cms,
-a mix of old-skool perl cgi with modern web framework ideas.
-It is not a web programming framework, end users are not expected
-to be able to program.
+    perl Makefile.PL
+    make
+    make test
+    make install
 
-INSTALLATION
+Dependencies
+------------
 
-To install this module type the following:
+Requires: File::Spec, Path::Tiny, Moo
+Test-only: Test::More
 
-   perl Makefile.PL
-   make
-   make test
-   make install
+Documentation
+-------------
 
-DEPENDENCIES
+    perldoc Compost::Template
 
-This module requires these other modules and libraries:
+Bug Reports
+-----------
 
-File::Spec
-Test::More - but only for testing the build
+Email: billy.lyrical@gmail.com
 
-PROBLEMS/BUG REPORTS
+License
+-------
 
-Please send any reports of problems or bugs to billy.lyrical@gmail.com.
+Licensed under the same terms as Perl itself (GPL v1+ or Artistic License 1).
 
-If you know Test::More, and can be bothered making a Test case,
-email it to me, that'll help me find and fix the bug.
-
-If you'd like more features, or have suggestions or whatever,
-please email me.
-
-COPYRIGHT AND LICENCE
-
-This code is licensed under the same terms and conditions as Perl itself.
-
-This means that you can, at your option, redistribute is and/or modify it under
-either the terms the GNU Public License (GPL) version 1 or later, or under the
-Perl Artistic License.
-
-See http://dev.perl.org/licenses/
-
-Copyright (C) 2007 by Billy Lyrical <billy.lyrical@gmail.com>
-
-
+Copyright (C) 2007 Billy Lyrical <billy.lyrical@gmail.com>
