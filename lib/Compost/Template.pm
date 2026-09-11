@@ -11,7 +11,7 @@ use Path::Tiny;
 use Compost::Template::Misc;
 use Compost::Template::Constants qw(:all);
 
-our $VERSION = '0.5.1';
+our $VERSION = '0.5.2';
 
 use constant {
 	DELIMITER => "\0\n",

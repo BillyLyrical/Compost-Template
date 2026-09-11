@@ -6,13 +6,13 @@ use 5.014;
 
 use Exporter 'import';
 
-our $VERSION = '0.5.1';
+our $VERSION = '0.5.2';
 
 my @op_names    = qw{ OP_CONFIG OP_DATA OP_VAR OP_PRINTF OP_CALL OP_STARTBLOCK OP_ENDBLOCK OP_FINISH OP_EXTENDS OP_SUPER };
 my @block_names = qw{ BLOCK_NOTIF BLOCK_IF BLOCK_ELSE BLOCK_LOOP BLOCK_INSERT BLOCK_PREFIX
                       BLOCK_MAP BLOCK_FORMAT BLOCK_STATE BLOCK_RANDOM BLOCK_DICE BLOCK_BLOCK };
 my @test_names  = qw{ TEST_NOT TEST_DEFINED TEST_EQUALS TEST_GT TEST_GTE TEST_LT TEST_LTE };
-my @var_names   = qw{ GLOBAL_VAR ESCAPE_HTML ESCAPE_URL VAR_SHRUG };
+my @var_names   = qw{ GLOBAL_VAR ESCAPE_HTML ESCAPE_URL VAR_SHRUG SCOPE_LOCAL SCOPE_GLOBAL SCOPE_PARENT };
 my @cache_names = qw{ CACHE_VERSION };
 
 our @EXPORT_OK = ( @op_names, @block_names, @test_names, @var_names, @cache_names );
@@ -64,6 +64,9 @@ use constant {
 	ESCAPE_HTML    => 1,
 	ESCAPE_URL     => 2,
 	VAR_SHRUG      => 3,
+	SCOPE_LOCAL    => 4,
+	SCOPE_GLOBAL   => 5,
+	SCOPE_PARENT   => 6,
 };
 
 1;

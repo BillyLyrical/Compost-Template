@@ -178,101 +178,6 @@ This makes the engine easy to audit, extend, and debug.
 The tradeoff is that advanced features require more work to add.
 
 
-Future: Better
---------------
-
-Developer experience and capabilities.
-
-
-Future: Faster
---------------
-
-Runtime performance optimizations.
-
-### Inline Caching
-
-For hot paths (frequent variable lookups in loops), cache
-resolution results in the variable's bytecode entry. First
-lookup resolves and stores; subsequent lookups return cached
-value directly.
-
-Most valuable for loops with 1000+ iterations accessing the
-same variable path repeatedly.
-
-### Constant Pool
-
-Deduplicate strings (variable names, format names, literals)
-in a shared constant pool. Instructions reference pool indices
-instead of embedding strings directly.
-
-Benefits:
-  - Reduced memory usage for large templates
-  - Improved cache locality
-  - Faster string comparisons (integer comparison)
-
-Format: [version, const_count, const_0, ..., instruction_0, ...]
-
-### XS Fast Path
-
-Compile the inner loop of _process_commands and _get_var to C/XS.
-This is a last resort — pure Perl should be sufficient for most
-applications. Target: 5-10x improvement for interpreter-bound
-workloads.
-
-
-Future: Stronger
-----------------
-
-Correctness, safety, and robustness.
-
-### Scope Chains
-
-Replace the two-namespace model with a scope stack:
-
-  $var     - current scope (loop body)
-  $.var    - global scope (root params)
-  $..var   - parent scope (one level up)
-
-Benefits:
-  - Eliminates -global in many cases
-  - Makes nested loops more intuitive
-  - Clearer variable resolution rules
-
-Implementation:
-  - Store scope stack in runtime state
-  - $..var walks up the stack
-  - $.var goes directly to global
-
-### Shims
-
-Data source adapters that bring external data into scope:
-
-  <% shim Yaml $file %> ... <% /shim %>
-  <% shim CSV $file %> ... <% /shim %>
-
-Requires:
-  - Shim registry (like the call registry)
-  - Parser support for shim blocks
-  - Runtime that parses data and injects into scope
-
-Potential sources: YAML, CSV, JSON, XML, DBI results.
-
-### Assignment
-
-Allow templates to write to a private namespace:
-
-  <% my $foo = $val %>
-
-Requires:
-  - Writeable variable namespace in runtime state
-  - New opcodes: OP_ASSIGN
-  - Parser support for assignment syntax
-
-This changes the engine's read-only model. Templates become
-stateful. Consider carefully before implementing — it trades
-simplicity for flexibility.
-
-
 What We're NOT
 --------------
 
@@ -312,7 +217,7 @@ Notes
   from template execution. It's used for UI state management
   and could be extracted into a standalone module.
 
-- The engine has 104 tests covering all major features.
+- The engine has 108 tests covering all major features.
   Run with: perl t/Compost-Template.t
 
 - BLOCK_INSERT and BLOCK_PREFIX are defined in Constants but
@@ -333,3 +238,7 @@ Notes
   are extracted during parsing and stored in bytecode with a sentinel
   value (256) to separate them from variable options. At runtime,
   _opVar applies filters in order using Format.pm functions.
+
+- Scope chains: $.var (global), $..var (parent scope). Loops push
+  parent scope onto scope_stack for $..var resolution. The -global
+  flag is a legacy alias for $.var.

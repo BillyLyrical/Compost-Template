@@ -4,7 +4,7 @@
 #########################
 use lib 'lib/';
 
-use Test::More tests => 104;
+use Test::More tests => 108;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -609,6 +609,37 @@ $template = Compost::Template->new(
 );
 $reply = $template->param(name => '<b>bold</b>')->run();
 is( $reply, 'bold', 'filter - strip_tags' );
+
+# ------------------------------------------------
+# test scope chains
+$template = Compost::Template->new(
+    template => '<% $.title %>',
+);
+$reply = $template->param(title => 'Global')->run();
+is( $reply, 'Global', 'scope - $.var global access' );
+
+$template = Compost::Template->new(
+    template => '<% loop $items %><% $name %><% /loop %>',
+);
+$reply = $template->param(items => [{ name => 'A' }, { name => 'B' }])->run();
+is( $reply, 'AB', 'scope - local in loop' );
+
+$template = Compost::Template->new(
+    template => '<% $outer_name %> <% loop $items %><% $..outer_name %><% /loop %>',
+);
+$reply = $template->param(outer_name => 'Parent', items => [{}, {}, {}])->run();
+is( $reply, 'Parent ParentParentParent', 'scope - $..var parent access' );
+
+$template = Compost::Template->new(
+    template => '<% loop $outer %><% $..root_val %> - <% loop $inner %><% $..outer_name %><% /loop %><% /loop %>',
+);
+$reply = $template->param(
+    root_val => 'ROOT',
+    outer => [
+        { outer_name => 'O1', inner => [{ }] },
+    ]
+)->run();
+is( $reply, 'ROOT - O1', 'scope - nested $..var reaches parent' );
 
 # clear the chache again
 unlink <./t/cache/*>;

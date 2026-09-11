@@ -10,7 +10,7 @@ use autodie;
 use Compost::Template::Constants qw(:all);
 use Compost::Template::Misc;
 
-our $VERSION = '0.5.1';
+our $VERSION = '0.5.2';
 
 package Compost::Template;
 
@@ -258,7 +258,7 @@ sub _process_tokens {
 		die "No tags in '$bs->{chunk}' " . _debug( $bs )
 		 unless scalar @{ $bs->{arg} };
 
-		$bs->{tag} = ( $bs->{arg}[0] =~ m/^\$\b\w/ ) ? 'var' : shift @{ $bs->{arg} };
+		$bs->{tag} = ( $bs->{arg}[0] =~ m/^\$/ ) ? 'var' : shift @{ $bs->{arg} };
 
 		# end of block?
 		if ( $bs->{tag} =~ m{^(/\w+|elsif|else|when)$} ) {
@@ -309,7 +309,21 @@ sub _doVar {
 
 	my $name = shift @{ $bs->{arg} };
 	die "Bad variable '$name' in $bs->{chunk} " . _debug( $bs )
-	 unless ( $name =~ m/^\$\b\w/ );
+	 unless ( $name =~ m/^\$/ );
+
+	# Detect scope prefix: $.var (global), $..var (parent)
+	my $scope = SCOPE_LOCAL;
+	if ( $name =~ /^\$\.\.(\w)/ ) {
+		$scope = SCOPE_PARENT;
+		$name =~ s/^\$\.\./\$/;
+	}
+	elsif ( $name =~ /^\$\.(\w)/ ) {
+		$scope = SCOPE_GLOBAL;
+		$name =~ s/^\$\./\$/;
+	}
+	elsif ( $name !~ m/^\$\w/ ) {
+		die "Bad variable '$name' in $bs->{chunk} " . _debug( $bs );
+	}
 
 	# pre-compile path parts for fast access at runtime
 	my $path = $name;
@@ -318,7 +332,11 @@ sub _doVar {
 
 	my @param = ( $name, scalar @parts, @parts );
 
-	exists $bs->{opt}{-global} and push @param, GLOBAL_VAR;
+	# Add scope option
+	push @param, $scope unless $scope == SCOPE_LOCAL;
+
+	# Legacy -global support (maps to SCOPE_GLOBAL)
+	exists $bs->{opt}{-global} and push @param, SCOPE_GLOBAL;
 	exists $bs->{opt}{-html}   and push @param, ESCAPE_HTML;
 	exists $bs->{opt}{-url}    and push @param, ESCAPE_URL;
 	exists $bs->{opt}{-shrug}  and push @param, VAR_SHRUG;

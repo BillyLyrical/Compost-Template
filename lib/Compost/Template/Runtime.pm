@@ -12,7 +12,7 @@ use autodie;
 use Compost::Template::Constants qw(:all);
 use Compost::Template::Misc;
 
-our $VERSION = '0.5.1';
+our $VERSION = '0.5.2';
 
 # keep in sync with Compost::Template::Parser
 # Index = opcode value (see Constants.pm)
@@ -66,17 +66,18 @@ my $RE_NUMERIC    = qr/^\d+$/;
 
 # -------------------------------------------------------------------
 sub _process_commands {
-	my ( $self, $stack, $pa, $cursor, $output_ref ) = @_;
+	my ( $self, $stack, $pa, $cursor, $output_ref, $scope_stack ) = @_;
 
 	my $output = defined $output_ref ? $output_ref : [];
 	my $state = {
 		self   => $self,
 		stack  => $stack,
 		cursor => $cursor,
-		pa     => $pa,     # params
+		pa     => $pa,     # params (current scope)
 		output => $output,
-		global => {},
+		global => {},      # global scope
 		arg    => [],
+		scope_stack => defined $scope_stack ? [ @$scope_stack ] : [], # stack of parent scopes for $..var
 	};
 	$state->{global} = $self->{_PARAMS};
 
@@ -116,10 +117,21 @@ sub _opVar {
 	my $opt_start = 5 + $path_count;
 	my $c = $opt_start;
 
-	# Parse options (integers)
-	while ( $c < scalar @{ $s->{arg} } and $s->{arg}[$c] =~ m/^\d+$/ and $s->{arg}[$c] <= $#varmap ) {
+	# Parse scope and options (integers)
+	my $scope = SCOPE_LOCAL;
+	my $max_opt = ( $#varmap > SCOPE_PARENT ) ? $#varmap : SCOPE_PARENT;
+	while ( $c < scalar @{ $s->{arg} } and $s->{arg}[$c] =~ m/^\d+$/ and $s->{arg}[$c] <= $max_opt ) {
 		my $opt = $s->{arg}[$c++];
-		$options{ $varmap[ $opt ] } = 1;
+		if ( $opt == SCOPE_LOCAL or $opt == SCOPE_GLOBAL or $opt == SCOPE_PARENT ) {
+			$scope = $opt;
+		}
+		elsif ( $opt == GLOBAL_VAR ) {
+			# Legacy -global flag maps to SCOPE_GLOBAL
+			$scope = SCOPE_GLOBAL;
+		}
+		else {
+			$options{ $varmap[ $opt ] } = 1;
+		}
 	}
 
 	# Parse filters (after sentinel value 256)
@@ -130,8 +142,7 @@ sub _opVar {
 		@filters = @{ $s->{arg} }[ $c .. $c + $filter_count - 1 ];
 	}
 
-	my $global = ( exists $options{global} ) ? 1 : 0;
-	my $var = _get_var( $s, $name, $global, \@path_parts );
+	my $var = _get_var( $s, $name, $scope, \@path_parts );
 	unless ( defined $var ) {
 		return $s->{arg}[2]
 		 if ( $s->{self}{CONFIG}{die_on_bad_params} == 0
@@ -314,12 +325,16 @@ sub _blockLoop {
 	my $list = _get_loop_list( $s );
 	my $total = scalar @$list;
 
+	# Save parent scope BEFORE entering loop body
+	my $parent_scope = $s->{pa};
+
 	my $count = 0;
 	for my $item ( @$list ) {
 		$item = _wrap_anon_item( $item );
 		_set_loop_vars( $item, $count, $total );
 
-		$s->{self}->_process_commands( $s->{stack}, $item, $s->{cursor} + 1, $s->{output} );
+		# Pass parent scope for $..var access inside loop
+		$s->{self}->_process_commands( $s->{stack}, $item, $s->{cursor} + 1, $s->{output}, [ @{$s->{scope_stack}}, $parent_scope ] );
 		$count++;
 	}
 
@@ -573,7 +588,7 @@ sub _linenum {
 
 # -------------------------
 sub _get_var {
-	my ( $s, $name, $global, $path_parts ) = @_;
+	my ( $s, $name, $scope, $path_parts ) = @_;
 
 	# anon arrays
 	if ( $name eq '$_' ) {
@@ -613,19 +628,34 @@ sub _get_var {
 	return $name
 	 unless ( $name =~ s/^\$\b(\w+)/$1/ );
 
+	# Resolve scope
+	my $source;
+	if ( $scope == SCOPE_GLOBAL ) {
+		$source = $s->{global};
+	}
+	elsif ( $scope == SCOPE_PARENT ) {
+		# $..var: look in parent scope
+		# First check scope stack (for nested loops)
+		my $depth = scalar @{ $s->{scope_stack} };
+		if ( $depth > 0 ) {
+			$source = $s->{scope_stack}[ $depth - 1 ];
+		}
+		else {
+			# No scope stack entry, use current scope (single loop)
+			$source = $s->{pa};
+		}
+	}
+	else {
+		# SCOPE_LOCAL - current scope
+		$source = $s->{pa};
+	}
+
 	# use pre-compiled path parts if available
 	if ( defined $path_parts and @$path_parts ) {
 		my $basename = $path_parts->[0];
 		my $tmpref;
-		if ( $global == 0 ) {
-			if ( exists $s->{pa}{ $basename } ) {
-				$tmpref = $s->{pa}{ $basename };
-			}
-		}
-		else {
-			if ( exists $s->{global}{ $basename } ) {
-				$tmpref = $s->{global}{ $basename };
-			}
+		if ( exists $source->{ $basename } ) {
+			$tmpref = $source->{ $basename };
 		}
 
 		for my $i ( 1 .. $#$path_parts ) {
@@ -657,15 +687,8 @@ sub _get_var {
 	# fallback: legacy path (no pre-compiled parts)
 	my $basename = $1;
 	my $tmpref;
-	if ( $global == 0 ) {
-		if ( exists $s->{pa}{ $basename } ) {
-			$tmpref = $s->{pa}{ $basename };
-		}
-	}
-	else {
-		if ( exists $s->{global}{ $basename } ) {
-			$tmpref = $s->{global}{ $basename };
-		}
+	if ( exists $source->{ $basename } ) {
+		$tmpref = $source->{ $basename };
 	}
 	return $tmpref unless ( $name =~ m/\./ );
 

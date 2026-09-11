@@ -24,11 +24,12 @@ Compost::Template - Simple Templating
  <% macro name($params) %> ... <% /macro %> - define reusable macro
  <% call name $args %>          - call a macro or registered function
 
- <% $var %>                     - insert variable
+ <% $var %>                     - insert variable (current scope)
+ <% $.var %>                    - insert global variable
+ <% $..var %>                   - insert parent scope variable
  <% $var | filter %>            - apply filter to variable
  <% $var | filter1 | filter2 %> - chain multiple filters
  <% $var1 or $var2 or 'oops' %> - "or" variables  
- <% $var -global %>             - insert global variable
  <% $var -html %>               - escape as html
  <% $var -url %>                - escape as url
  <% $var -shrug %>              - don't fail if var not found
@@ -368,12 +369,30 @@ Filters can be combined with options:
 
 =item Variables
 
- <% $var %>
+ <% $var %>                     - current scope (loop body, map context)
+ <% $.var %>                    - global scope (root params)
+ <% $..var %>                   - parent scope (one level up)
  <% $var1 or $var2 or 'oops' %> - "or" variables  
- <% $var -global %>  - is a global variable, starts in root namespace
- <% $var -html %>    - escape as html
- <% $var -url %>     - escape as url
- <% $var -shrug %>   - don't fail if the $var is undefined
+ <% $var -html %>               - escape as html
+ <% $var -url %>                - escape as url
+ <% $var -shrug %>              - don't fail if the $var is undefined
+
+Variables use a scope chain for resolution:
+
+  $var     - looks in current scope (loop body, map context)
+  $.var    - looks directly in global scope (root params)
+  $..var   - looks in parent scope (scope before entering current loop)
+
+Example with nested loops:
+
+  <% loop $outer %>
+    <% $..root_var %>            ← reaches root params (before outer loop)
+    <% loop $inner %>
+      <% $..outer_name %>        ← reaches outer loop item (before inner loop)
+    <% /loop %>
+  <% /loop %>
+
+The -global flag is still supported as a legacy alias for $.var.
 
 The <% $var %> tag is very simple.  For each <% $var %> tag in the
 template you call $template->param( var => "VALUE").  When
