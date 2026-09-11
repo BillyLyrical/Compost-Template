@@ -4,7 +4,7 @@
 #########################
 use lib 'lib/';
 
-use Test::More tests => 76;
+use Test::More tests => 79;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -448,6 +448,27 @@ is( $reply, '2', 'or vars 2' );
 
 $reply = $template->param( var1 => 0  )->run();
 is( $reply, 'hmmm', 'or vars 3' );
+
+# ------------------------------------------------
+# magic variables: __line__, __file__
+$template = Compost::Template->new(
+    template => '<% $__line__ %>',
+);
+$reply = $template->run();
+is( $reply, '1', '__line__ line 1' );
+
+$template = Compost::Template->new(
+    template => "line1\n<% \$__line__ %>",
+);
+$reply = $template->run();
+is( $reply, "line1\n2", '__line__ line 2' );
+
+$template = Compost::Template->new(
+    template => '<% $__file__ %>',
+    path     => './t/data',
+);
+$reply = $template->run();
+is( $reply, '(template)', '__file__ returns (template) for inline' );
 
 
 

@@ -471,6 +471,25 @@ sub _get_var {
 		return $s->{pa}{__anon__}
 	}
 
+	# magic variables
+	if ( $name eq '$__line__' or $name eq '$__file__' ) {
+		$s->{arg}[0] =~ m/^\[(\d+)\:(\d+)\]$/
+		 or die "Bad debug info '$s->{arg}[0]'";
+		if ( $name eq '$__line__' ) {
+			return $2;
+		}
+		else {
+			my $f = '';
+			if ( exists $s->{_INCLUDE_FILES} and defined $s->{_INCLUDE_FILES}[$1] ) {
+				$f = $s->{_INCLUDE_FILES}[$1];
+			}
+			elsif ( defined $s->{CONFIG}{filename} and $s->{CONFIG}{filename} ne '' ) {
+				$f = $s->{CONFIG}{filename};
+			}
+			return $f || '(template)';
+		}
+	}
+
 	return $name
 	 unless ( $name =~ s/^\$\b(\w+)/$1/ );
 	my $basename = $1;
