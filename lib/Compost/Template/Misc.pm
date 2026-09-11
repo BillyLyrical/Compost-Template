@@ -8,7 +8,7 @@ use autodie;
 use Path::Tiny;
 use File::Spec;
 
-our $VERSION = '0.2.9';
+our $VERSION = '0.3.0';
 
 # -----------------------------------------
 # utility subs

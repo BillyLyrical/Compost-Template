@@ -11,7 +11,7 @@ use Path::Tiny;
 use Compost::Template::Misc;
 use Compost::Template::Constants qw(:all);
 
-our $VERSION = '0.2.9';
+our $VERSION = '0.3.0';
 
 use constant {
 	DELIMITER => "\0\n",
@@ -235,7 +235,13 @@ sub _read_cache {
 		$c++;
 		$line =~ m/^(.)/;
 
-		if ( $1 eq '0' ) {  # OP_CONFIG = 0
+		if ( $1 eq 'V' ) {  # version header
+			my ( undef, $ver ) = split ',', $line;
+			die "Cache version mismatch in '$file': expected " . CACHE_VERSION . ", got $ver"
+			 unless ( defined $ver and $ver == CACHE_VERSION );
+			next;
+		}
+		elsif ( $1 eq '0' ) {  # OP_CONFIG = 0
 			my ( $op, $key, $val, $val2 ) = split ',', $line;
 			if ( $key eq 'cache' ) {
 				$self->{CONFIG}{cache} = $val;

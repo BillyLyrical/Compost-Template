@@ -10,7 +10,7 @@ use autodie;
 use Compost::Template::Constants qw(:all);
 use Compost::Template::Misc;
 
-our $VERSION = '0.2.9';
+our $VERSION = '0.3.0';
 
 package Compost::Template;
 
@@ -725,6 +725,7 @@ sub _dump {
 	my $s = shift;
 
 	my @buf;
+	push @buf, "V," . CACHE_VERSION;
 	push @buf, OP_CONFIG . ",cache,$s->{CONFIG}{cache}";
 	push @buf, OP_CONFIG . ",filename,$s->{CONFIG}{filename}";
 
