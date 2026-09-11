@@ -4,7 +4,7 @@
 #########################
 use lib 'lib/';
 
-use Test::More tests => 66;
+use Test::More tests => 67;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -336,6 +336,12 @@ $template = Compost::Template->new(
 );
 $reply = $template->param( var => [ 23, 12, 53 ]  )->run();
 is( $reply, '123', 'loop __count__' );
+
+$template = Compost::Template->new(
+    template => '<% loop $var %><% $__index__ %><% /loop %>',
+);
+$reply = $template->param( var => [ 23, 12, 53 ]  )->run();
+is( $reply, '012', 'loop __index__' );
 
 $template = Compost::Template->new(
     template => '<% loop $var %><% if $__inner__ %><% $_ %><% /if %><% /loop %>',

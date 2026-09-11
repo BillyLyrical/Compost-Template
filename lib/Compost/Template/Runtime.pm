@@ -262,6 +262,7 @@ sub _blockLoop {
 
 		# insert loop data tags
 		$item->{'__count__'} = $count + 1;
+		$item->{'__index__'} = $count;
 		$item->{'__first__'} = ( $count == 0 ) ? 1 : 0;
 		$item->{'__last__'}  = ( $count == $top ) ? 1 : 0;
 		$item->{'__inner__'} = ( $count != 0 and $count != $top ) ? 1 : 0;
