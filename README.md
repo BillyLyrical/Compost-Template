@@ -44,7 +44,7 @@ cached and reused across requests without re-parsing.
 - `<% format upper %>` / `ucfirst` / `lcfirst` / `capitalize` / `reverse` / `repeat` / `center` / `slugify` / `strip_tags` / `truncate_words` / `truncate` / `trim` / `wordwrap` / `text2html`
 - `<% $var | filter %>` pipe syntax for chaining filters
 - `<% extends base.tmpl %>` / `<% block name %>` / `<% super %>` for template inheritance
-- `<% macro name($params) %>` / `<% call name $args %>` for reusable macros
+- `<% macro name($params) %>` / `<% call name $args %>` for reusable macros (including recursion over nested hashes)
 - `<% call $callback $arg %>` for Perl callbacks
 - `<% state Key pattern %>` for regex-matchable state
 - `<% $var or $fallback %>` for default values
@@ -59,6 +59,14 @@ cached and reused across requests without re-parsing.
 - Cache files carry a version header; mismatches fail cleanly
 - Template linter in `bin/compost-lint.pl`
 - Editor syntax highlighting for Vim, Geany, VS Code and Sublime Text
+
+## Recursion
+
+Macros can call themselves to walk nested hash trees (e.g. folders
+with a `children` list). Pass the child list into the next `call`,
+not the whole node — inside `loop` each hash becomes the local scope.
+`block` / `extends` are inheritance only, not for calling fragments.
+See the macro section of `perldoc Compost::Template` for a full recipe.
 
 ## Quick Start
 

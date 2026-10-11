@@ -266,6 +266,10 @@ replaces the parent's block with new content.
 
 Block names must be alphanumeric (no spaces or special characters).
 
+Note: block / extends / super are for template inheritance only.
+They are not callable fragments. For reusable pieces you can invoke
+(including recursively), use the macro tag instead.
+
 Example parent defining blocks:
 
   <html>
@@ -340,6 +344,41 @@ Multiple parameters:
 
 Macros can be defined in included files for reuse across templates
 (macro libraries).
+
+Recursion:
+
+A macro may call itself. This is how you walk nested hash trees
+(for example a folder list with a children array). Pass the child
+list into the next call, not the whole node: inside loop the current
+hash is the local scope, so its keys ($title, $children, ...) are
+plain locals.
+
+  <% macro walk($list) %>
+    <% loop $list %>
+      <% if $uri %>
+        <dd><a href="<% $uri -html %>"><% $title -html %></a></dd>
+      <% else %>
+        <dt><% $title -html %></dt>
+        <% if $children %>
+          <dd><dl><% call walk $children %></dl></dd>
+        <% /if %>
+      <% /if %>
+    <% /loop %>
+  <% /macro %>
+
+  <% map $jsonData %>
+    <dt><% $title -html %></dt>
+    <% if $children %>
+      <dd><dl><% call walk $children %></dl></dd>
+    <% /if %>
+  <% /map %>
+
+map enters a single hash as scope without iterating; loop walks an
+array of hashes. At the top level, map the root node (or loop its
+list) and hand each node's children array to walk.
+
+Unlike includes, macros have no recursion depth limit. A macro that
+always re-calls itself with the same list will not stop on its own.
 
 =item Filters
 
