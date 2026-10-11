@@ -55,16 +55,19 @@ cached and reused across requests without re-parsing.
 - Compiled bytecode cache for performance
 - Line-number error reporting
 - HTML and URL escaping
+- Format names and unclosed blocks checked at compile time
+- Cache files carry a version header; mismatches fail cleanly
+- Template linter in `bin/compost-lint.pl`
+- Editor syntax highlighting for Vim, Geany, VS Code and Sublime Text
 
 ## Quick Start
 
 ```perl
 use Compost::Template;
 
-my $template = Compost::Template->new( filename => 'test.tmpl' );
-$template->param(
-    name => 'Steve',
-    age  => 34,
+my $template = Compost::Template->new(
+    filename => 'test.tmpl',
+    params   => { name => 'Steve', age => 34 },
 );
 print $template->run;
 ```
@@ -96,6 +99,26 @@ make install
 
 - **Runtime:** `File::Spec`, `Path::Tiny`
 - **Test-only:** `Test::More`
+
+## Linter
+
+`bin/compost-lint.pl` checks templates without running them:
+
+```sh
+perl -Ilib bin/compost-lint.pl templates/*.tmpl
+perl -Ilib bin/compost-lint.pl --path views page.tmpl
+cat page.tmpl | perl -Ilib bin/compost-lint.pl -
+```
+
+Reports syntax errors (including unclosed blocks), undefined
+filters, and undefined macros. Options: `--path` (include path,
+repeatable), `--verbose` (also report unused macros).
+
+## Editor support
+
+Syntax highlighting for Vim and Geany is in `editors/`;
+VS Code / Sublime Text grammar is in `syntaxes/`. See
+`editors/README.md` for install notes.
 
 ## Documentation
 

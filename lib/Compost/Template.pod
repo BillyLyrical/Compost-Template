@@ -67,10 +67,6 @@ Compost::Template - Simple Templating
  <% state State *.happy %> ... <% /state %>
  <% call myFunc $var1 $var2 %>
 
-=over 4
-
-=back
-
 =head1 DESCRIPTION
 
 Compost::Template is a perl templating module, based on
@@ -86,6 +82,11 @@ variables, loops and branches declared in the template.  This allows
 you to separate design - the HTML - from the data, which you generate
 in the Perl script.
 
+Templates are checked when they are compiled: unknown format names
+and unclosed blocks are reported with line numbers before run() is
+ever called.  See also the LINTER section below for a standalone
+check script.
+
 =head1 QUICK START
 
 First you make a template - this is just a normal file with template
@@ -95,7 +96,7 @@ For example, test.tmpl:
 
   My name is <% $name %>,
   i am <% $age %> years old.
-  
+
 Now create a small perl script:
 
   use Compost::Template;
@@ -113,14 +114,14 @@ This should print:
 
 =head1 THE TAGS
 
-=over 4
-
 Note: even though these tags look like HTML theyre allowed to "break the rules".
 Some thing like:
 
    <img src="<% $image_source %>">
 
 is not really valid HTML, but it is a perfectly valid use and will work as planned.
+
+=over 4
 
 =item General Syntax
 
@@ -320,8 +321,8 @@ Example:
     Hello, <% $name %>!
   <% /macro %>
 
-  <% call greet "World" %>    → Hello, World!
-  <% call greet "Alice" %>    → Hello, Alice!
+  <% call greet "World" %>    => Hello, World!
+  <% call greet "Alice" %>    => Hello, Alice!
 
 Parameters are referenced as $name inside the macro body.
 Arguments can be string literals ("World") or variables ($who).
@@ -350,15 +351,15 @@ with the pipe character (|). Filters are applied left to right.
 
 Example:
 
-  <% $name | uppercase %>       → HELLO
-  <% $name | ucfirst %>         → Hello
-  <% $name | slugify %>         → hello-world
-  <% $html | strip_tags %>      → plain text
+  <% $name | uppercase %>       => HELLO
+  <% $name | ucfirst %>         => Hello
+  <% $name | slugify %>         => hello-world
+  <% $html | strip_tags %>      => plain text
 
 Chained filters:
 
-  <% $name | uppercase | reverse %>  → OLLEH
-  <% $name | ucfirst | slugify %>    → hello-world
+  <% $name | uppercase | reverse %>  => OLLEH
+  <% $name | ucfirst | slugify %>    => hello-world
 
 Available filters (same as format tag):
   uppercase, lowercase, ucfirst, lcfirst, capitalize,
@@ -389,9 +390,9 @@ Variables use a scope chain for resolution:
 Example with nested loops:
 
   <% loop $outer %>
-    <% $..root_var %>            ← reaches root params (before outer loop)
+    <% $..root_var %>            - reaches root params (before outer loop)
     <% loop $inner %>
-      <% $..outer_name %>        ← reaches outer loop item (before inner loop)
+      <% $..outer_name %>        - reaches outer loop item (before inner loop)
     <% /loop %>
   <% /loop %>
 
@@ -545,7 +546,7 @@ the unless block will run if the loop has zero rows.
   <% unless $ARRAY %>
     This will output if $ARRAY is empty.
   <% /unless %>
-  
+
   <% loop $ARRAY %>
     ....
   <% /loop %>
@@ -563,7 +564,7 @@ the unless block will run if the loop has zero rows.
 You can include an alternate block in your <% if %> block by using
 <% else %>.  NOTE: You still end the block with <% /if %>, not
 <% /else %>!
- 
+
    Example:
 
    <% if $BOOL %>
@@ -630,7 +631,7 @@ Here's an example of how this can be done (there are other ways):
     # fill in this row
     $row_data{name} = shift @friends;
     $row_data{age}  = shift @ages;
- 
+
     # push a reference to this row into the loop!
     push( @loop_data, \%row_data );
   }
@@ -834,6 +835,9 @@ You can add your own formats...
 
   Compost::Template::Format->add( $name, $callback );
 
+Format names are checked at compile time, so a typo fails early
+rather than at run time.
+
 =item state
 
  <% state State *.happy %> ... <% /state %>
@@ -958,6 +962,10 @@ templates based on the filename parameter and modification date of the
 file.  Caching looks at the modification times of any files included using
 <% include %> tags, to see if it needs to reparse the templates.
 
+Cache files start with a version header.  If the bytecode format
+changes between releases, old cache files are rejected with an error
+and need to be rebuilt (remake => 1, or delete the cache files).
+
 =item cache_dir
 
 If set will use/write template cache files in that dir, if 'cache'
@@ -1003,6 +1011,13 @@ to 0 to disable this protection.
 Set this variable to contain the template so it can be
 loaded in dynamically. This conflicts with 'filename',
 but not 'path' or 'cache'.
+
+=item params
+
+  'params' => { name => 'Steve', age => 34 },
+
+A hash-ref of initial parameters, applied the same way as calling
+param() after new().  Can be used with 'filename' or 'template'.
 
 =item state
 
@@ -1142,6 +1157,8 @@ Allows you to test if the State you've chosen matches a state glob.
 You must pass in the match glob, if you don't pass the state to match
 then it will match against the objects' defined STATE.
 
+=back
+
 =head1 Factory
 
 There is a sub package called Compost::Template::Factory.
@@ -1157,7 +1174,7 @@ example...
   );
   my $t1 = $factory->new( $filename1 );
   my $t2 = $factory->new( $filename2 );
-  
+
 All the options are cached when you create the factory, and
 then passed to Compost::Template by every Compost::Template::Factory->new().
 
@@ -1173,7 +1190,23 @@ together...
    ->param( name => 'banjo' )
    ->run();
 
-=back
+=head1 LINTER
+
+The script bin/compost-lint.pl checks templates without running them:
+
+  compost-lint.pl templates/*.tmpl
+  compost-lint.pl --path views page.tmpl
+  cat page.tmpl | compost-lint.pl -
+
+It reports syntax errors (including unclosed blocks), undefined
+filters, and undefined macros.  Options: --path (include path, may
+be repeated), --verbose (also report unused macros), --help.
+
+=head1 EDITOR SUPPORT
+
+Syntax highlighting files for Vim and Geany ship in the editors/
+directory; a TextMate grammar for VS Code / Sublime Text is in
+syntaxes/.  See editors/README.md for installation notes.
 
 =head1 COPYRIGHT
 
