@@ -9,7 +9,7 @@ use autodie;
 
 use Compost::Template::Misc;
 
-our $VERSION = '0.5.2';
+our $VERSION = '0.6.0';
 
 my %formats = (
 	uppercase  => \&_formatUppercase,
@@ -30,6 +30,7 @@ my %formats = (
 	slugify    => \&_formatSlugify,
 	strip_tags => \&_formatStripTags,
 	truncate_words => \&_formatTruncateWords,
+	dump       => \&_formatDump,
 );
 
 sub isKnown {
@@ -142,6 +143,19 @@ sub _formatWordwrap {
 	$width //= 78;
 	$text =~ s/([^\n]{0,$width}[\.\,\;]?)\b\s*/$1\n/mg;
 	return $text;
+}
+
+sub _formatDump {
+	my ( $text, $indent ) = @_;
+	$indent = 2 unless defined $indent && $indent =~ m/^\d+$/;
+
+	require Data::Dumper;
+	local $Data::Dumper::Indent    = $indent;
+	local $Data::Dumper::Sortkeys  = 1;
+	local $Data::Dumper::Terse     = 1;
+	local $Data::Dumper::Deepcopy  = 0;
+	local $Data::Dumper::Purity    = 0;
+	return Data::Dumper::Dumper( $text );
 }
 
 sub _formatText2html {

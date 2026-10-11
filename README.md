@@ -1,4 +1,4 @@
-# Compost::Template v0.5.2
+# Compost::Template v0.6.0
 
 A Perl templating engine. Originally written in 2005, updated and
 modernized for current Perl (5.14+).
@@ -42,7 +42,7 @@ cached and reused across requests without re-parsing.
 - `<% map $hash %>` over hashes or arrays
 - `<% printf "%08d" $var %>` for padding and formatting
 - `<% format upper %>` / `ucfirst` / `lcfirst` / `capitalize` / `reverse` / `repeat` / `center` / `slugify` / `strip_tags` / `truncate_words` / `truncate` / `trim` / `wordwrap` / `text2html`
-- `<% $var | filter %>` pipe syntax for chaining filters
+- `<% $var | filter %>` pipe syntax for chaining filters (including `| dump` for Data::Dumper)
 - `<% extends base.tmpl %>` / `<% block name %>` / `<% super %>` for template inheritance
 - `<% macro name($params) %>` / `<% call name $args %>` for reusable macros (including recursion over nested hashes)
 - `<% call $callback $arg %>` for Perl callbacks
@@ -65,8 +65,10 @@ cached and reused across requests without re-parsing.
 Macros can call themselves to walk nested hash trees (e.g. folders
 with a `children` list). Pass the child list into the next `call`,
 not the whole node — inside `loop` each hash becomes the local scope.
-`block` / `extends` are inheritance only, not for calling fragments.
-See the macro section of `perldoc Compost::Template` for a full recipe.
+`$_` is the current hash ref when the loop item is a hash, so
+`call walk $_` also works. `block` / `extends` are inheritance only,
+not for calling fragments. See the macro section of
+`perldoc Compost::Template` for a full recipe.
 
 ## Quick Start
 

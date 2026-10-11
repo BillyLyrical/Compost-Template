@@ -380,6 +380,10 @@ list) and hand each node's children array to walk.
 Unlike includes, macros have no recursion depth limit. A macro that
 always re-calls itself with the same list will not stop on its own.
 
+Inside a loop over hashes, '$_' is the current hash ref, so you can
+also pass the whole node with call walk $_ (or walk its children
+with call walk $children as above).
+
 =item Filters
 
   <% $var | filter %>
@@ -404,7 +408,7 @@ Available filters (same as format tag):
   uppercase, lowercase, ucfirst, lcfirst, capitalize,
   reverse, repeat N, center N, slugify, strip_tags,
   truncate N, truncate_words N, trim, wordwrap N,
-  text2html (alias: html)
+  text2html (alias: html), dump N
 
 Filters can be combined with options:
 
@@ -794,6 +798,16 @@ without needing to be wrapped in a hash.
 
     Template: <% loop $array %> <% $_ %> <% /loop %>
 
+When the loop item is a hash ref, bare keys still resolve against
+that hash, and '$_' is the original hash ref (useful for call).
+Magic vars (__count__ etc) are written on the loop scope only,
+not onto your data.
+
+  ie..
+	Code: items => [ { name => 'A', children => [...] } ]
+
+    Template: <% loop $items %><% $name %><% call walk $_ %><% /loop %>
+
 =item switch
 
  <% switch $t %>     - $t must be a $variable that can be tested
@@ -869,6 +883,12 @@ Currently implemented format types are
  wordwrap N  - simple wordwrap at N chars (default 78)
  text2html   - primitive text to html conversion
  html        - alias for text2html
+ dump N      - Data::Dumper of the value (N = indent, default 2)
+
+'dump' is meant for debugging template data. It uses Terse and
+Sortkeys, and is also available as a filter: <% $var | dump %>.
+The block form works on text, so the filter form is usually what
+you want for structures.
 
 You can add your own formats...
 

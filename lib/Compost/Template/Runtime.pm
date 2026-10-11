@@ -12,7 +12,7 @@ use autodie;
 use Compost::Template::Constants qw(:all);
 use Compost::Template::Misc;
 
-our $VERSION = '0.5.2';
+our $VERSION = '0.6.0';
 
 # keep in sync with Compost::Template::Parser
 # Index = opcode value (see Constants.pm)
@@ -157,11 +157,12 @@ sub _opVar {
 		$var = Compost::Template::Misc::url_encode( $var );
 	}
 
-	# Apply filters
+	# Apply filters (name + optional whitespace-delimited args)
 	if ( @filters ) {
 		require Compost::Template::Format;
 		for my $filter ( @filters ) {
-			$var = Compost::Template::Format->format( $var, $filter );
+			my ( $fname, @fargs ) = split ' ', $filter;
+			$var = Compost::Template::Format->format( $var, $fname, @fargs );
 		}
 	}
 
@@ -329,8 +330,9 @@ sub _blockLoop {
 	my $parent_scope = $s->{pa};
 
 	my $count = 0;
-	for my $item ( @$list ) {
-		$item = _wrap_anon_item( $item );
+	for my $raw ( @$list ) {
+		# copy out of the for alias so we never write the wrapper back
+		my $item = _wrap_anon_item( $raw );
 		_set_loop_vars( $item, $count, $total );
 
 		# Pass parent scope for $..var access inside loop
@@ -555,6 +557,14 @@ sub _wrap_anon_item {
 	}
 	elsif ( ref $item eq 'SCALAR' ) {
 		return { __anon__ => $$item };
+	}
+	elsif ( ref $item eq 'HASH' ) {
+		# Flatten-copy so bare keys work; keep original ref on __anon__
+		# so $_ is the caller's hash (magic vars land on the wrapper).
+		return { %$item, __anon__ => $item };
+	}
+	elsif ( ref $item eq 'ARRAY' ) {
+		return { __anon__ => $item };
 	}
 	return $item;
 }

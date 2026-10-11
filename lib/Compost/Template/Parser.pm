@@ -10,7 +10,7 @@ use autodie;
 use Compost::Template::Constants qw(:all);
 use Compost::Template::Misc;
 
-our $VERSION = '0.5.2';
+our $VERSION = '0.6.0';
 
 package Compost::Template;
 
@@ -241,9 +241,10 @@ sub _process_tokens {
 		}
 
 		# Extract filter chain before whitespace splitting
+		# each filter is NAME with optional whitespace-delimited args: dump 2
 		$bs->{filters} = [];
 		my $chunk_content = $bs->{chunk};
-		if ( $chunk_content =~ s/\|\s*(\w+(?:\s*\|\s*\w+)*)\s*%>/%>/ ) {
+		if ( $chunk_content =~ s/\|\s*(.+?)\s*%>/%>/ ) {
 			my $filter_str = $1;
 			@{ $bs->{filters} } = map { s/^\s+|\s+$//gr } split /\|/, $filter_str;
 		}

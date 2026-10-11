@@ -4,7 +4,7 @@
 #########################
 use lib 'lib/';
 
-use Test::More tests => 108;
+use Test::More tests => 116;
 BEGIN {
     use_ok('Compost::Template');
     use_ok('Compost::Template::Runtime');
@@ -610,6 +610,18 @@ $template = Compost::Template->new(
 $reply = $template->param(name => '<b>bold</b>')->run();
 is( $reply, 'bold', 'filter - strip_tags' );
 
+$template = Compost::Template->new(
+    template => '<% $x | dump %>',
+);
+$reply = $template->param( x => { b => 2, a => 1 } )->run();
+like( $reply, qr/\{\s*'a'\s*=>\s*1,\s*'b'\s*=>\s*2\s*\}/, 'filter - dump hash' );
+
+$template = Compost::Template->new(
+    template => '<% $x | dump 0 %>',
+);
+$reply = $template->param( x => [ 10, 20 ] )->run();
+is( $reply, "[10,20]", 'filter - dump indent 0' );
+
 # ------------------------------------------------
 # test scope chains
 $template = Compost::Template->new(
@@ -640,6 +652,64 @@ $reply = $template->param(
     ]
 )->run();
 is( $reply, 'ROOT - O1', 'scope - nested $..var reaches parent' );
+
+# ------------------------------------------------
+# $_ for hash loop items (flatten-copy scope)
+my $hash_items = [ { name => 'A' }, { name => 'B' } ];
+$template = Compost::Template->new(
+    template => '<% loop $items %><% $name %><% /loop %>',
+);
+$reply = $template->param( items => $hash_items )->run();
+is( $reply, 'AB', 'loop hash items - bare keys still work' );
+
+$template = Compost::Template->new(
+    template => '<% loop $items %><% $__count__ %><% /loop %>',
+);
+$reply = $template->param( items => $hash_items )->run();
+is( $reply, '12', 'loop hash items - magic vars render' );
+ok( !exists $hash_items->[0]{__count__}, 'loop hash items - magic vars not on user hash' );
+
+$template = Compost::Template->new(
+    template => '<% loop $items %><% call check $_ %><% /loop %>',
+);
+$template->set_call(
+    'check',
+    sub {
+        my $ref = shift;
+        return ( ref $ref eq 'HASH'
+            and exists $ref->{name}
+            and !exists $ref->{__count__} ) ? 'Y' : 'N';
+    }
+);
+$reply = $template->param( items => [ { name => 'A' } ] )->run();
+is( $reply, 'Y', '$_ for hash is original hashref' );
+
+# recursive macro over nested hash tree
+$template = Compost::Template->new(
+    template => '<% macro walk($list) %><% loop $list %>'
+      . '<% if $uri %>L:<% $title %> <% else %>D:<% $title %> <% /if %>'
+      . '<% if $children %><% call walk $children %><% /if %>'
+      . '<% /loop %><% /macro %><% call walk $tree %>',
+);
+$reply = $template->param(
+    tree => [
+        {
+            title    => 'folder',
+            children => [
+                { title => 'a', uri => '/a' },
+                { title => 'b', uri => '/b' },
+            ],
+        },
+    ]
+)->run();
+is( $reply, 'D:folder L:a L:b ', 'recursive macro over nested hashes' );
+
+# random: $_ for hash item
+$template = Compost::Template->new(
+    template => '<% random $items %>name=<% $name %> anon=<% if $_ %>yes<% else %>no<% /if %><% /random %>',
+);
+$reply = $template->param( items => [ { name => 'only' } ] )->run();
+is( $reply, 'name=only anon=yes', 'random hash item sets $_' );
 
 # clear the chache again
 unlink <./t/cache/*>;
